@@ -22,10 +22,11 @@ type
     property Printed: TStringBuilder read FPrinted;
   published
     procedure NewState;
-    procedure LoadAndCallFromString;
-    procedure LoadAndCallFromStream;
+    procedure LoadAndRunFromString;
+    procedure LoadAndRunFromStream;
 
     procedure FunctionResult;
+    procedure CallLuaFunction;
   end;
 
 
@@ -70,18 +71,18 @@ end;
 
 
 
-procedure TTestWrapper.LoadAndCallFromString;
+procedure TTestWrapper.LoadAndRunFromString;
 begin
   Lua.LoadFromString('print("Hello world!")');
-  Lua.Call;
+  Lua.Run;
   CheckEquals('Hello world!', Printed.ToString);
 end;
 
 
-procedure TTestWrapper.LoadAndCallFromStream;
+procedure TTestWrapper.LoadAndRunFromStream;
 begin
   Lua.LoadFromStream(TStringStream.Create('print("Hello world!")'));
-  Lua.Call;
+  Lua.Run;
   CheckEquals('Hello world!', Printed.ToString);
 end;
 
@@ -95,8 +96,23 @@ begin
     end);
 
   Lua.LoadFromString('print(myuppercase("Hello world!"))');
-  Lua.Call;
+  Lua.Run;
   CheckEquals('HELLO WORLD!', Printed.ToString);
+end;
+
+
+procedure TTestWrapper.CallLuaFunction;
+var
+  returnValues: ILuaReadParameters;
+
+begin
+  Lua.LoadFromString('function sum(a, b)'#13#10 +
+                     '  return a + b'#13#10 +
+                     'end');
+
+  returnValues := Lua.Call('sum', [1, 2]);
+  CheckEquals(1, returnValues.Count, 'returnValues Count');
+  CheckEquals(3, returnValues[0].AsInteger, 'returnValues[0]');
 end;
 
 

@@ -291,6 +291,7 @@ var
   function lua_tointeger(L: lua_State; idx: Integer): lua_Integer; inline;
   function lua_tounsigned(L: lua_State; idx: Integer): lua_Unsigned; inline;
 
+  procedure lua_pop(L: lua_State; n: Integer); inline;
   (*
   #define lua_pop(L,n)		lua_settop(L, -(n)-1)
 
@@ -624,6 +625,11 @@ end;
 function lua_tounsigned(L: lua_State; idx: Integer): lua_Unsigned;
 begin
   Result := lua_tounsignedx(L, idx, nil);
+end;
+
+procedure lua_pop(L: lua_State; n: Integer);
+begin
+  lua_settop(L, -(n) - 1);
 end;
 
 procedure lua_pushcfunction(L: lua_State; f: lua_CFunction);
