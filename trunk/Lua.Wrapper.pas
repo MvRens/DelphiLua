@@ -4,6 +4,7 @@ interface
 uses
   System.Classes,
   System.Generics.Collections,
+  System.Generics.Defaults,
   System.SysUtils,
 
   Lua;
@@ -12,6 +13,7 @@ type
   ELuaException = class(Exception);
   ELuaInitException = class(ELuaException);
   ELuaUnsupportedParameterException = class(ELuaException);
+  ELuaUnsupportedVariableException = class(ELuaException);
 
   TLuaLibrary = (Base, Coroutine, Table, IO, OS, StringLib, Bit32, Math, Debug, Package, All);
   TLuaLibraries = set of TLuaLibrary;
@@ -19,37 +21,131 @@ type
   TLuaDataType = (LuaNone, LuaNil, LuaNumber, LuaBoolean, LuaString, LuaTable,
                   LuaCFunction, LuaUserData, LuaThread, LuaLightUserData);
 
-  TLuaParameterType = (ParameterNone, ParameterBoolean, ParameterInteger,
-                       ParameterNumber, ParameterUserData, ParameterString,
-                       ParameterTable);
+  TLuaVariableType = (VariableNone, VariableBoolean, VariableInteger,
+                      VariableNumber, VariableUserData, VariableString,
+                      VariableTable);
 
-  ILuaParameter = interface
+  ILuaTable = interface;
+
+
+  ILuaVariable = interface
     ['{ADA0D4FB-F0FB-4493-8FEC-6FC92C80117F}']
+    function GetVariableType: TLuaVariableType;
+    function GetDataType: TLuaDataType;
+
     function GetAsBoolean: Boolean;
     function GetAsInteger: Integer;
     function GetAsNumber: Double;
     function GetAsUserData: Pointer;
     function GetAsString: string;
-    function GetParameterType: TLuaParameterType;
-    function GetDataType: TLuaDataType;
-    function GetIndex: Integer;
+    function GetAsTable: ILuaTable;
 
-    property AsBoolean: Boolean read GetAsBoolean;
-    property AsInteger: Integer read GetAsInteger;
-    property AsNumber: Double read GetAsNumber;
-    property AsUserData: Pointer read GetAsUserData;
-    property AsString: string read GetAsString;
-    property ParameterType: TLuaParameterType read GetParameterType;
+    procedure SetAsBoolean(ABoolean: Boolean);
+    procedure SetAsInteger(AInteger: Integer);
+    procedure SetAsNumber(ANumber: Double);
+    procedure SetAsUserData(AUserData: Pointer);
+    procedure SetAsString(AString: string);
+    procedure SetAsTable(ATable: ILuaTable);
+
+
+    property VariableType: TLuaVariableType read GetVariableType;
     property DataType: TLuaDataType read GetDataType;
 
-    property Index: Integer read GetIndex;
+    property AsBoolean: Boolean read GetAsBoolean write SetAsBoolean;
+    property AsInteger: Integer read GetAsInteger write SetAsInteger;
+    property AsNumber: Double read GetAsNumber write SetAsNumber;
+    property AsUserData: Pointer read GetAsUserData write SetAsUserData;
+    property AsString: string read GetAsString write SetAsString;
+    property AsTable: ILuaTable read GetAsTable write SetAsTable;
+  end;
+
+
+  TLuaImplicitVariable = record
+    Variable: ILuaVariable;
+
+    class operator Implicit(AValue: ILuaVariable): TLuaImplicitVariable;
+    class operator Implicit(AValue: Boolean): TLuaImplicitVariable;
+    class operator Implicit(AValue: Integer): TLuaImplicitVariable;
+    class operator Implicit(AValue: Double): TLuaImplicitVariable;
+    class operator Implicit(AValue: Pointer): TLuaImplicitVariable;
+    class operator Implicit(const AValue: string): TLuaImplicitVariable;
+    class operator Implicit(AValue: ILuaTable): TLuaImplicitVariable;
+    class operator Implicit(AValue: TLuaImplicitVariable): ILuaVariable;
+    class operator Implicit(AValue: TLuaImplicitVariable): Boolean;
+    class operator Implicit(AValue: TLuaImplicitVariable): Integer;
+    class operator Implicit(AValue: TLuaImplicitVariable): Double;
+    class operator Implicit(AValue: TLuaImplicitVariable): Pointer;
+    class operator Implicit(AValue: TLuaImplicitVariable): string;
+    class operator Implicit(AValue: TLuaImplicitVariable): ILuaTable;
+  end;
+
+
+  TLuaKeyValuePair = record
+    Key: ILuaVariable;
+    Value: ILuaVariable;
+  end;
+
+
+  ILuaTableEnumerator = interface
+    ['{4C3F4E20-F9E7-42E6-9446-78C535AF2E30}']
+    function GetCurrent: TLuaKeyValuePair;
+    function MoveNext: Boolean;
+
+    property Current: TLuaKeyValuePair read GetCurrent;
+  end;
+
+
+  ILuaTable = interface
+    ['{57FD52A1-7D53-485B-A630-29841C498387}']
+    function GetEnumerator: ILuaTableEnumerator;
+
+    function GetValue(AKey: TLuaImplicitVariable): ILuaVariable;
+    procedure SetValue(AKey: TLuaImplicitVariable; AValue: TLuaImplicitVariable);
+  end;
+
+
+  TLuaTableEnumerator = class(TInterfacedObject, ILuaTableEnumerator)
+  private
+    FEnumerator: TEnumerator<TPair<ILuaVariable, ILuaVariable>>;
+  public
+    constructor Create(AEnumerator: TEnumerator<TPair<ILuaVariable, ILuaVariable>>);
+    destructor Destroy; override;
+
+    { ILuaTableEnumerator }
+    function GetCurrent: TLuaKeyValuePair;
+    function MoveNext: Boolean;
+
+    property Current: TLuaKeyValuePair read GetCurrent;
+  end;
+
+
+  TLuaVariableEqualityComparer = class(TInterfacedObject, IEqualityComparer<ILuaVariable>)
+  public
+    { IEqualityComparer<ILuaVariable> }
+    function Equals(const Left, Right: ILuaVariable): Boolean; reintroduce;
+    function GetHashCode(const Value: ILuaVariable): Integer; reintroduce;
+  end;
+
+
+  TLuaTable = class(TInterfacedObject, ILuaTable)
+  private
+    FTable: TDictionary<ILuaVariable, ILuaVariable>;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    { ILuaTable }
+    function GetEnumerator: ILuaTableEnumerator;
+
+    function GetValue(AKey: TLuaImplicitVariable): ILuaVariable;
+    procedure SetValue(AKey: TLuaImplicitVariable; AValue: TLuaImplicitVariable);
   end;
 
 
   ILuaParametersEnumerator = interface
-    function GetCurrent: ILuaParameter;
+    function GetCurrent: ILuaVariable;
     function MoveNext: Boolean;
-    property Current: ILuaParameter read GetCurrent;
+    property Current: ILuaVariable read GetCurrent;
   end;
 
 
@@ -63,12 +159,12 @@ type
 
   ILuaReadParameters = interface(ILuaParameters)
     ['{FB611D9E-B51D-460B-B5AB-B567EF853222}']
-    function GetItem(Index: Integer): ILuaParameter;
+    function GetItem(Index: Integer): ILuaVariable;
 
     function GetEnumerator: ILuaParametersEnumerator;
     function ToString: string;
 
-    property Items[Index: Integer]: ILuaParameter read GetItem; default;
+    property Items[Index: Integer]: ILuaVariable read GetItem; default;
   end;
 
 
@@ -79,6 +175,7 @@ type
     procedure Push(ANumber: Double); overload;
     procedure Push(AUserData: Pointer); overload;
     procedure Push(const AString: string); overload;
+    procedure Push(ATable: ILuaTable); overload;
   end;
 
 
@@ -101,6 +198,20 @@ type
   end;
 
   TLuaRegisteredFunctionDictionary = TDictionary<Integer, TLuaRegisteredFunction>;
+
+
+  TLuaScript = class(TObject)
+  private
+    FStream: TStream;
+    FStreamOwnership: TStreamOwnership;
+    FBuffer: PAnsiChar;
+  public
+    constructor Create(const AData: string); overload;
+    constructor Create(const AStream: TStream; AOwnership: TStreamOwnership = soReference); overload;
+    destructor Destroy; override;
+
+    function GetNextChunk(out ASize: Cardinal): PAnsiChar; virtual;
+  end;
 
 
   TLua = class(TObject)
@@ -126,6 +237,7 @@ type
   protected
     procedure CheckState; virtual;
     procedure RaiseLastLuaError; virtual;
+
     procedure AfterLoad; virtual;
 
     function GetRegisteredFunctionCookie: Integer; virtual;
@@ -140,7 +252,11 @@ type
 
     procedure LoadFromString(const AData: string; const AChunkName: string = ''); virtual;
     procedure LoadFromStream(AStream: TStream; AOwnership: TStreamOwnership = soReference; const AChunkName: string = ''); virtual;
+    procedure LoadFromFile(const AFileName: string; const AChunkName: string = ''); virtual;
+    procedure LoadFromScript(AScript: TLuaScript; AOwnership: TStreamOwnership = soReference; const AChunkName: string = ''); virtual;
 
+    function GetGlobalVariable(const AName: string): ILuaVariable;
+    procedure SetGlobalVariable(const AName: string; AVariable: TLuaImplicitVariable);
     procedure RegisterFunction(const AName: string; AFunction: TLuaFunction);
 
     procedure OpenLibraries(ALibraries: TLuaLibraries); virtual;
@@ -157,8 +273,16 @@ type
 
 
   function GetLuaDataType(AType: Integer): TLuaDataType;
-  function GetLuaParameterType(ADataType: TLuaDataType): TLuaParameterType;
+  function GetLuaVariableType(ADataType: TLuaDataType): TLuaVariableType;
   function CreateParameters(AParameters: array of const): ILuaReadParameters;
+  procedure PushVariable(AState: lua_State; AVariable: ILuaVariable); overload;
+  procedure PushVariable(AState: lua_State; AVariable: ILuaVariable; AVariableType: TLuaVariableType); overload;
+  procedure PushTable(AState: lua_State; ATable: ILuaTable);
+
+  function AllocLuaString(const AValue: string): PAnsiChar;
+  procedure FreeLuaString(AValue: PAnsiChar);
+
+  function LuaToString(AState: lua_State; AIndex: Integer): string;
 
 
 implementation
@@ -168,19 +292,6 @@ uses
 
 type
   PLuaScript = ^TLuaScript;
-  TLuaScript = class(TObject)
-  private
-    FStream: TStream;
-    FStreamOwnership: TStreamOwnership;
-    FBuffer: PAnsiChar;
-  public
-    constructor Create(const AData: string); overload;
-    constructor Create(const AStream: TStream; AOwnership: TStreamOwnership = soReference); overload;
-    destructor Destroy; override;
-
-    function GetNextChunk(out ASize: Cardinal): PAnsiChar;
-  end;
-
 
   TLuaParametersEnumerator = class(TInterfacedObject, ILuaParametersEnumerator)
   private
@@ -191,7 +302,7 @@ type
   public
     constructor Create(AParameters: ILuaReadParameters);
 
-    function GetCurrent: ILuaParameter;
+    function GetCurrent: ILuaVariable;
     function MoveNext: Boolean;
   end;
 
@@ -200,85 +311,126 @@ type
   public
     { ILuaParameters }
     function GetCount: Integer; virtual; abstract;
-    function GetItem(Index: Integer): ILuaParameter; virtual; abstract;
+    function GetItem(Index: Integer): ILuaVariable; virtual; abstract;
 
     function GetEnumerator: ILuaParametersEnumerator;
     function ToString: string; override;
   end;
 
 
-  TLuaCFunctionParameters = class(TCustomLuaParameters)
+  TLuaStackParameters = class(TCustomLuaParameters)
   private
     FState: lua_State;
     FCount: Integer;
   protected
     property State: lua_State read FState;
   public
-    constructor Create(AState: lua_State);
+    constructor Create(AState: lua_State; ACount: Integer = -1);
 
     { ILuaParameters }
     function GetCount: Integer; override;
-    function GetItem(Index: Integer): ILuaParameter; override;
+    function GetItem(Index: Integer): ILuaVariable; override;
   end;
 
 
-  TLuaCFunctionParameter = class(TInterfacedObject, ILuaParameter)
+  TLuaStackVariable = class(TInterfacedObject, ILuaVariable)
   private
     FState: lua_State;
     FIndex: Integer;
+    FTable: ILuaTable;
   protected
     property State: lua_State read FState;
+    property Index: Integer read FIndex;
   public
     constructor Create(AState: lua_State; AIndex: Integer);
 
-    { ILuaParameter }
+    { ILuaVariable }
+    function GetDataType: TLuaDataType;
+    function GetVariableType: TLuaVariableType;
+
     function GetAsBoolean: Boolean;
     function GetAsInteger: Integer;
     function GetAsNumber: Double;
     function GetAsUserData: Pointer;
     function GetAsString: string;
-    function GetDataType: TLuaDataType;
-    function GetParameterType: TLuaParameterType;
-    function GetIndex: Integer;
+    function GetAsTable: ILuaTable;
+
+    procedure SetAsBoolean(ABoolean: Boolean);
+    procedure SetAsInteger(AInteger: Integer);
+    procedure SetAsNumber(ANumber: Double);
+    procedure SetAsUserData(AUserData: Pointer);
+    procedure SetAsString(AString: string);
+    procedure SetAsTable(ATable: ILuaTable);
   end;
 
 
   TLuaResultParameters = class(TCustomLuaParameters)
   private
-    FParameters: TList<ILuaParameter>;
+    FParameters: TList<ILuaVariable>;
   public
     constructor Create(AState: lua_State; ACount: Integer);
     destructor Destroy; override;
 
     function GetCount: Integer; override;
-    function GetItem(Index: Integer): ILuaParameter; override;
+    function GetItem(Index: Integer): ILuaVariable; override;
   end;
 
 
-  TCustomLuaParameter = class(TInterfacedObject, ILuaParameter)
-  protected
-    FIndex: Integer;
+  TLuaVariable = class(TInterfacedObject, ILuaVariable)
+  private
+    FVariableType: TLuaVariableType;
     FDataType: TLuaDataType;
-    FParameterType: TLuaParameterType;
-    FAsBoolean: Boolean;
-    FAsInteger: Integer;
-    FAsNumber: Double;
-    FAsUserData: Pointer;
-    FAsString: string;
+    FBooleanValue: Boolean;
+    FIntegerValue: Integer;
+    FNumberValue: Double;
+    FUserDataValue: Pointer;
+    FStringValue: string;
+    FTableValue: ILuaTable;
+  protected
+    property VariableType: TLuaVariableType read FVariableType write FVariableType;
+    property DataType: TLuaDataType read FDataType write FDataType;
+    property BooleanValue: Boolean read FBooleanValue write FBooleanValue;
+    property IntegerValue: Integer read FIntegerValue write FIntegerValue;
+    property NumberValue: Double read FNumberValue write FNumberValue;
+    property UserDataValue: Pointer read FUserDataValue write FUserDataValue;
+    property StringValue: string read FStringValue write FStringValue;
+    property TableValue: ILuaTable read FTableValue write FTableValue;
   public
+    constructor Create; overload;
+    constructor Create(ABoolean: Boolean); overload;
+    constructor Create(AInteger: Integer); overload;
+    constructor Create(ANumber: Double); overload;
+    constructor Create(AUserData: Pointer); overload;
+    constructor Create(const AString: string); overload;
+    constructor Create(ATable: ILuaTable); overload;
+
     { ILuaParameter }
+    function GetVariableType: TLuaVariableType;
+    function GetDataType: TLuaDataType;
+
     function GetAsBoolean: Boolean;
     function GetAsInteger: Integer;
     function GetAsNumber: Double;
     function GetAsUserData: Pointer;
     function GetAsString: string;
-    function GetDataType: TLuaDataType;
-    function GetParameterType: TLuaParameterType;
-    function GetIndex: Integer;
+    function GetAsTable: ILuaTable;
+
+    procedure SetAsBoolean(ABoolean: Boolean);
+    procedure SetAsInteger(AInteger: Integer);
+    procedure SetAsNumber(ANumber: Double);
+    procedure SetAsUserData(AUserData: Pointer);
+    procedure SetAsString(AString: string);
+    procedure SetAsTable(ATable: ILuaTable);
   end;
 
 
-  TLuaResultParameter = class(TCustomLuaParameter)
+  TLuaCachedVariable = class(TLuaVariable)
+  public
+    constructor Create(AState: lua_State; AIndex: Integer);
+  end;
+
+
+  TLuaCachedTable = class(TLuaTable)
   public
     constructor Create(AState: lua_State; AIndex: Integer);
   end;
@@ -286,13 +438,13 @@ type
 
   TLuaReadWriteParameters = class(TCustomLuaParameters, ILuaWriteParameters)
   private
-    FParameters: TList<ILuaParameter>;
+    FParameters: TList<ILuaVariable>;
   public
     constructor Create;
     destructor Destroy; override;
 
     function GetCount: Integer; override;
-    function GetItem(Index: Integer): ILuaParameter; override;
+    function GetItem(Index: Integer): ILuaVariable; override;
 
     { ILuaWriteParameters }
     procedure Push(ABoolean: Boolean); overload;
@@ -300,20 +452,11 @@ type
     procedure Push(ANumber: Double); overload;
     procedure Push(AUserData: Pointer); overload;
     procedure Push(const AString: string); overload;
+    procedure Push(ATable: ILuaTable); overload;
   end;
 
 
-  TLuaReadWriteParameter = class(TCustomLuaParameter)
-  public
-    constructor Create(ABoolean: Boolean); overload;
-    constructor Create(AInteger: Integer); overload;
-    constructor Create(ANumber: Double); overload;
-    constructor Create(AUserData: Pointer); overload;
-    constructor Create(const AString: string); overload;
-  end;
-
-
-  TLuaWriteParameters = class(TInterfacedObject, ILuaParameters, ILuaWriteParameters)
+  TLuaStackWriteParameters = class(TInterfacedObject, ILuaParameters, ILuaWriteParameters)
   private
     FState: lua_State;
     FCount: Integer;
@@ -332,6 +475,7 @@ type
     procedure Push(ANumber: Double); overload;
     procedure Push(AUserData: Pointer); overload;
     procedure Push(const AString: string); overload;
+    procedure Push(ATable: ILuaTable); overload;
   end;
 
 
@@ -350,6 +494,44 @@ type
 
 
 { Helpers }
+// Casting strings directly to PAnsiChar (via AnsiString) causes corruption
+// with table values, at least in Delphi XE2. Can't really explain why, seems
+// the input string goes out of scope, so let's just go through the motions
+// to create a copy and be safe.
+function AllocLuaString(const AValue: string): PAnsiChar;
+begin
+  if Length(AValue) > 0 then
+  begin
+    GetMem(Result, Length(AValue) + 1);
+    StrPCopy(Result, AnsiString(AValue));
+  end else
+    Result := nil;
+end;
+
+
+procedure FreeLuaString(AValue: PAnsiChar);
+begin
+  FreeMem(AValue);
+end;
+
+// If someone cares to reproduce this issue and optimize the code, use these
+// two and the TableLuaFunction test should fail with a corrupted value
+// (#11#0#0#0#11#0#0#0#11#0#0#0#11#0#0#0#11).
+(*
+function AllocLuaString(const AValue: string): PAnsiChar;
+begin
+  if Length(AValue) > 0 then
+    Result := PAnsiChar(AnsiString(AValue))
+  else
+    Result := nil;
+end;
+
+procedure FreeLuaString(AValue: PAnsiChar);
+begin
+end;
+*)
+
+
 function GetLuaDataType(AType: Integer): TLuaDataType;
 begin
   case AType of
@@ -368,17 +550,17 @@ begin
 end;
 
 
-function GetLuaParameterType(ADataType: TLuaDataType): TLuaParameterType;
+function GetLuaVariableType(ADataType: TLuaDataType): TLuaVariableType;
 begin
   case ADataType of
-    LuaNumber:        Result := ParameterNumber;
-    LuaBoolean:       Result := ParameterBoolean;
-    LuaString:        Result := ParameterString;
-    LuaTable:         Result := ParameterTable;
-    LuaUserData:      Result := ParameterUserData;
-    LuaLightUserData: Result := ParameterUserData;
+    LuaNumber:        Result := VariableNumber;
+    LuaBoolean:       Result := VariableBoolean;
+    LuaString:        Result := VariableString;
+    LuaTable:         Result := VariableTable;
+    LuaUserData:      Result := VariableUserData;
+    LuaLightUserData: Result := VariableUserData;
   else
-                      Result := ParameterNone;
+                      Result := VariableNone;
   end;
 end;
 
@@ -388,6 +570,7 @@ var
   parameterIndex: Integer;
   parameter: TVarRec;
   resultParameters: TLuaReadWriteParameters;
+  table: ILuaTable;
 
 begin
   resultParameters := TLuaReadWriteParameters.Create;
@@ -403,14 +586,19 @@ begin
         vtString:         resultParameters.Push(string(parameter.VString));
         vtPointer:        resultParameters.Push(parameter.VPointer);
         vtPChar:          resultParameters.Push(string(parameter.VPChar));
-        vtObject:         resultParameters.Push(parameter.VObject);
-        vtClass:          resultParameters.Push(parameter.VClass);
+        vtObject:
+          if parameter.VObject is TLuaTable then
+            resultParameters.Push(TLuaTable(parameter.VObject));
+
         vtWideChar:       resultParameters.Push(string(parameter.VWideChar));
         vtPWideChar:      resultParameters.Push(string(parameter.VPWideChar));
         vtAnsiString:     resultParameters.Push(string(PAnsiChar(parameter.VAnsiString)));
         vtCurrency:       resultParameters.Push(parameter.VCurrency^);
 //        vtVariant:       resultParameters.Push(parameter.VVariant);
-//        vtInterface:     resultParameters.Push(parameter.VInterface);
+        vtInterface:
+          if Supports(IInterface(parameter.VInterface), ILuaTable, table) then
+            resultParameters.Push(table);
+
         vtWideString:     resultParameters.Push(string(PWideString(parameter.VWideString)));
         vtInt64:          resultParameters.Push(parameter.VInt64^);
         vtUnicodeString:  resultParameters.Push(string(PUnicodeString(parameter.VUnicodeString)));
@@ -420,6 +608,288 @@ begin
   end;
 
   Result := resultParameters;
+end;
+
+
+procedure PushVariable(AState: lua_State; AVariable: ILuaVariable);
+begin
+  PushVariable(AState, AVariable, AVariable.VariableType);
+end;
+
+
+procedure PushVariable(AState: lua_State; AVariable: ILuaVariable; AVariableType: TLuaVariableType);
+var
+  stringValue: PAnsiChar;
+
+begin
+  case AVariableType of
+    VariableNone:     lua_pushnil(AState);
+    VariableBoolean:  lua_pushboolean(AState, IfThen(AVariable.AsBoolean, 1, 0));
+    VariableInteger:  lua_pushinteger(AState, AVariable.AsInteger);
+    VariableNumber:   lua_pushnumber(AState, AVariable.AsNumber);
+    VariableUserData: lua_pushlightuserdata(AState, AVariable.AsUserData);
+    VariableString:
+      begin
+        stringValue := AllocLuaString(AVariable.AsString);
+        try
+          lua_pushlstring(AState, stringValue, Length(AVariable.AsString));
+        finally
+          FreeLuaString(stringValue);
+        end;
+      end;
+    VariableTable:    PushTable(AState, AVariable.AsTable);
+  else
+    raise ELuaUnsupportedVariableException.CreateFmt('Variable type not supported: %d', [Ord(AVariableType)]);
+  end;
+end;
+
+
+procedure PushTable(AState: lua_State; ATable: ILuaTable);
+var
+  pair: TLuaKeyValuePair;
+
+begin
+  lua_newtable(AState);
+
+  for pair in ATable do
+  begin
+    PushVariable(AState, pair.Key);
+    PushVariable(AState, pair.Value);
+    lua_settable(AState, -3);
+  end;
+end;
+
+
+function LuaToString(AState: lua_State; AIndex: Integer): string;
+var
+  len: Cardinal;
+  value: PAnsiChar;
+  stringValue: RawByteString;
+
+begin
+  value := lua_tolstring(AState, AIndex, @len);
+  SetString(stringValue, value, len);
+
+  Result := string(stringValue);
+end;
+
+
+{ TLuaImplicitVariable }
+class operator TLuaImplicitVariable.Implicit(AValue: ILuaVariable): TLuaImplicitVariable;
+begin
+  Result.Variable := AValue;
+end;
+
+
+class operator TLuaImplicitVariable.Implicit(AValue: Boolean): TLuaImplicitVariable;
+begin
+  Result.Variable := TLuaVariable.Create(AValue);
+end;
+
+
+class operator TLuaImplicitVariable.Implicit(AValue: Integer): TLuaImplicitVariable;
+begin
+  Result.Variable := TLuaVariable.Create(AValue);
+end;
+
+
+class operator TLuaImplicitVariable.Implicit(AValue: Double): TLuaImplicitVariable;
+begin
+  Result.Variable := TLuaVariable.Create(AValue);
+end;
+
+
+class operator TLuaImplicitVariable.Implicit(AValue: Pointer): TLuaImplicitVariable;
+begin
+  Result.Variable := TLuaVariable.Create(AValue);
+end;
+
+
+class operator TLuaImplicitVariable.Implicit(const AValue: string): TLuaImplicitVariable;
+begin
+  Result.Variable := TLuaVariable.Create(AValue);
+end;
+
+
+class operator TLuaImplicitVariable.Implicit(AValue: ILuaTable): TLuaImplicitVariable;
+begin
+  Result.Variable := TLuaVariable.Create(AValue);
+end;
+
+
+class operator TLuaImplicitVariable.Implicit(AValue: TLuaImplicitVariable): ILuaVariable;
+begin
+  Result := AValue.Variable;
+end;
+
+
+class operator TLuaImplicitVariable.Implicit(AValue: TLuaImplicitVariable): Boolean;
+begin
+  Result := AValue.Variable.AsBoolean;
+end;
+
+
+class operator TLuaImplicitVariable.Implicit(AValue: TLuaImplicitVariable): Integer;
+begin
+  Result := AValue.Variable.AsInteger;
+end;
+
+
+class operator TLuaImplicitVariable.Implicit(AValue: TLuaImplicitVariable): Double;
+begin
+  Result := AValue.Variable.AsNumber;
+end;
+
+
+class operator TLuaImplicitVariable.Implicit(AValue: TLuaImplicitVariable): Pointer;
+begin
+  Result := AValue.Variable.AsUserData;
+end;
+
+
+class operator TLuaImplicitVariable.Implicit(AValue: TLuaImplicitVariable): string;
+begin
+  Result := AValue.Variable.AsString;
+end;
+
+
+class operator TLuaImplicitVariable.Implicit(AValue: TLuaImplicitVariable): ILuaTable;
+begin
+  Result := AValue.Variable.AsTable;
+end;
+
+
+{ TLuaTableEnumerator }
+constructor TLuaTableEnumerator.Create(AEnumerator: TEnumerator<TPair<ILuaVariable, ILuaVariable>>);
+begin
+  inherited Create;
+
+  FEnumerator := AEnumerator;
+end;
+
+
+destructor TLuaTableEnumerator.Destroy;
+begin
+  FreeAndNil(FEnumerator);
+
+  inherited Destroy;
+end;
+
+
+function TLuaTableEnumerator.GetCurrent: TLuaKeyValuePair;
+var
+  current: TPair<ILuaVariable, ILuaVariable>;
+
+begin
+  current := FEnumerator.Current;
+
+  Result.Key := current.Key;
+  Result.Value := current.Value;
+end;
+
+
+function TLuaTableEnumerator.MoveNext: Boolean;
+begin
+  Result := FEnumerator.MoveNext;
+end;
+
+
+{ TLuaVariableEqualityComparer }
+function TLuaVariableEqualityComparer.Equals(const Left, Right: ILuaVariable): Boolean;
+begin
+  Result := (Left.VariableType = Right.VariableType);
+  if Result then
+  begin
+    case Left.VariableType of
+      VariableBoolean:  Result := (Left.AsBoolean = Right.AsBoolean);
+      VariableInteger:  Result := (Left.AsInteger = Right.AsInteger);
+      VariableNumber:   Result := SameValue(Left.AsNumber, Right.AsNumber);
+      VariableUserData: Result := (Left.AsUserData = Right.AsUserData);
+      VariableString:   Result := (Left.AsString = Right.AsString);
+      VariableTable:    Result := (Left.AsTable = Right.AsTable);
+    end;
+  end;
+end;
+
+function TLuaVariableEqualityComparer.GetHashCode(const Value: ILuaVariable): Integer;
+var
+  i: Integer;
+  m: Extended;
+  e: Integer;
+  p: Pointer;
+  s: string;
+
+begin
+  Result := 0;
+
+  // System.Generics.Defaults has a decent set of GetHashCode_ functions...
+  // ...which are of course private.
+  case Value.VariableType of
+    VariableBoolean:
+      Result := Ord(Value.AsBoolean);
+    VariableInteger:
+      begin
+        i := Value.AsInteger;
+        Result := BobJenkinsHash(i, SizeOf(i), 0);
+      end;
+    VariableNumber:
+      begin
+        // Denormalized floats and positive/negative 0.0 complicate things.
+        Frexp(Value.AsNumber, m, e);
+        if m = 0 then
+          m := Abs(m);
+        Result := BobJenkinsHash(m, SizeOf(m), 0);
+        Result := BobJenkinsHash(e, SizeOf(e), Result);
+      end;
+    VariableUserData:
+      begin
+        p := Value.AsUserData;
+        Result := BobJenkinsHash(p, SizeOf(p), 0);
+      end;
+    VariableString:
+      begin
+        s := Value.AsString;
+        if Length(s) > 0 then
+          Result := BobJenkinsHash(s[1], Length(s) * SizeOf(s[1]), 0);
+      end;
+    VariableTable:
+      Result := Integer(Value.AsTable);
+  end;
+end;
+
+
+{ TLuaTable }
+constructor TLuaTable.Create;
+begin
+  inherited Create;
+
+  FTable := TDictionary<ILuaVariable, ILuaVariable>.Create(TLuaVariableEqualityComparer.Create);
+end;
+
+
+destructor TLuaTable.Destroy;
+begin
+  FreeAndNil(FTable);
+
+  inherited Destroy;
+end;
+
+
+function TLuaTable.GetEnumerator: ILuaTableEnumerator;
+begin
+  Result := TLuaTableEnumerator.Create(FTable.GetEnumerator);
+end;
+
+
+function TLuaTable.GetValue(AKey: TLuaImplicitVariable): ILuaVariable;
+begin
+  Result := FTable[AKey];
+end;
+
+
+procedure TLuaTable.SetValue(AKey, AValue: TLuaImplicitVariable);
+begin
+  FTable.AddOrSetValue(AKey, AValue);
 end;
 
 
@@ -501,15 +971,6 @@ begin
 end;
 
 
-function NilPAnsiChar(const AValue: string): PAnsiChar;
-begin
-  if Length(AValue) > 0 then
-    Result := PAnsiChar(AnsiString(AValue))
-  else
-    Result := nil;
-end;
-
-
 { TLua }
 constructor TLua.Create;
 begin
@@ -531,35 +992,41 @@ end;
 
 
 procedure TLua.LoadFromString(const AData: string; const AChunkName: string);
-var
-  script: TLuaScript;
-
 begin
-  script := TLuaScript.Create(AData);
-  try
-    if lua_load(State, LuaWrapperReader, @script, NilPAnsiChar(AChunkName), nil) <> 0 then
-      RaiseLastLuaError;
-
-    AfterLoad;
-  finally
-    FreeAndNil(script);
-  end;
+  LoadFromScript(TLuaScript.Create(AData), soOwned, AChunkName);
 end;
 
 
 procedure TLua.LoadFromStream(AStream: TStream; AOwnership: TStreamOwnership; const AChunkName: string);
+begin
+  LoadFromScript(TLuaScript.Create(AStream, AOwnership), soOwned, AChunkName);
+end;
+
+
+procedure TLua.LoadFromFile(const AFileName, AChunkName: string);
+begin
+  LoadFromScript(TLuaScript.Create(TFileStream.Create(AFileName, fmOpenRead or fmShareDenyNone), soOwned), soOwned, AChunkName);
+end;
+
+
+procedure TLua.LoadFromScript(AScript: TLuaScript; AOwnership: TStreamOwnership; const AChunkName: string);
 var
-  script: TLuaScript;
+  chunkName: PAnsiChar;
 
 begin
-  script := TLuaScript.Create(AStream, AOwnership);
   try
-    if lua_load(State, LuaWrapperReader, @script, NilPAnsiChar(AChunkName), nil) <> 0 then
-      RaiseLastLuaError;
+    chunkName := AllocLuaString(AChunkName);
+    try
+      if lua_load(State, LuaWrapperReader, @AScript, chunkName, nil) <> 0 then
+        RaiseLastLuaError;
+    finally
+      FreeLuaString(chunkName);
+    end;
 
     AfterLoad;
   finally
-    FreeAndNil(script);
+    if AOwnership = soOwned then
+      FreeAndNil(AScript);
   end;
 end;
 
@@ -628,8 +1095,8 @@ function TLua.Call(const AFunctionName: string; AParameters: ILuaReadParameters)
 var
   stackIndex: Integer;
   parameterCount: Integer;
-  parameter: ILuaParameter;
-  parameterIndex: Integer;
+  parameter: ILuaVariable;
+  functionName: PAnsiChar;
 
 begin
   { Global functions are only present after the has run once:
@@ -639,25 +1106,19 @@ begin
 
   stackIndex := lua_gettop(State);
 
-  lua_getglobal(State, PAnsiChar(AnsiString(AFunctionName)));
+  functionName := AllocLuaString(AFunctionName);
+  try
+    lua_getglobal(State, functionName);
+  finally
+    FreeLuaString(functionName);
+  end;
 
   parameterCount := 0;
   if Assigned(AParameters) then
   begin
     parameterCount := AParameters.Count;
-    for parameterIndex := 0 to Pred(AParameters.Count) do
-    begin
-      parameter := AParameters[parameterIndex];
-      case parameter.ParameterType of
-        ParameterBoolean:   lua_pushboolean(State, IfThen(parameter.AsBoolean, 1, 0));
-        ParameterInteger:   lua_pushinteger(State, parameter.AsInteger);
-        ParameterNumber:    lua_pushnumber(State, parameter.AsNumber);
-        ParameterUserData:  lua_pushlightuserdata(State, parameter.AsUserData);
-        ParameterString:    lua_pushstring(State, PAnsiChar(AnsiString(parameter.AsString)));
-      else
-        raise ELuaUnsupportedParameterException.CreateFmt('Parameter type not supported: %d (index: %d)', [Ord(parameter.ParameterType), parameterIndex]);
-      end;
-    end;
+    for parameter in AParameters do
+      PushVariable(State, parameter);
   end;
 
   if lua_pcall(State, parameterCount, LUA_MULTRET, 0) <> 0 then
@@ -695,6 +1156,38 @@ begin
   { Register functions in the current environment }
   for cookie in RegisteredFunctions.Keys do
     DoRegisterFunction(cookie);
+end;
+
+
+function TLua.GetGlobalVariable(const AName: string): ILuaVariable;
+var
+  name: PAnsiChar;
+
+begin
+  name := AllocLuaString(AName);
+  try
+    lua_getglobal(State, name);
+
+    Result := TLuaCachedVariable.Create(State, -1);
+    lua_pop(State, 1);
+  finally
+    FreeLuaString(name);
+  end;
+end;
+
+
+procedure TLua.SetGlobalVariable(const AName: string; AVariable: TLuaImplicitVariable);
+var
+  name: PAnsiChar;
+
+begin
+  name := AllocLuaString(AName);
+  try
+    PushVariable(State, AVariable);
+    lua_setglobal(State, name);
+  finally
+    FreeLuaString(name);
+  end;
 end;
 
 
@@ -742,16 +1235,19 @@ end;
 
 procedure TLua.DoRegisterFunction(ACookie: Integer);
 var
-  name: string;
+  name: PAnsiChar;
 
 begin
-  name := RegisteredFunctions[ACookie].Name;
+  name := AllocLuaString(RegisteredFunctions[ACookie].Name);
+  try
+    lua_pushlightuserdata(State, Self);
+    lua_pushinteger(State, ACookie);
 
-  lua_pushlightuserdata(State, Self);
-  lua_pushinteger(State, ACookie);
-
-  lua_pushcclosure(State, @LuaWrapperFunction, 2);
-  lua_setglobal(State, NilPAnsiChar(name));
+    lua_pushcclosure(State, @LuaWrapperFunction, 2);
+    lua_setglobal(State, name);
+  finally
+    FreeLuaString(name);
+  end;
 end;
 
 
@@ -815,7 +1311,7 @@ begin
   FIndex := -1;
 end;
 
-function TLuaParametersEnumerator.GetCurrent: ILuaParameter;
+function TLuaParametersEnumerator.GetCurrent: ILuaVariable;
 begin
   Result := Parameters.Items[FIndex];
 end;
@@ -848,29 +1344,35 @@ end;
 
 
 { TLuaCFunctionParameters }
-constructor TLuaCFunctionParameters.Create(AState: lua_State);
+constructor TLuaStackParameters.Create(AState: lua_State; ACount: Integer);
 begin
   inherited Create;
 
   FState := AState;
-  FCount := lua_gettop(State);
+  FCount := ACount;
+
+  if FCount = -1 then
+    FCount := lua_gettop(State);
 end;
 
 
-function TLuaCFunctionParameters.GetCount: Integer;
+function TLuaStackParameters.GetCount: Integer;
 begin
   Result := FCount;
 end;
 
 
-function TLuaCFunctionParameters.GetItem(Index: Integer): ILuaParameter;
+function TLuaStackParameters.GetItem(Index: Integer): ILuaVariable;
 begin
-  Result := TLuaCFunctionParameter.Create(State, Succ(Index));
+  if (Index < 0) or (Index >= GetCount) then
+    raise ERangeError.CreateFmt('Invalid parameter index: %d', [Index]);
+
+  Result := TLuaStackVariable.Create(State, Succ(Index));
 end;
 
 
 { TLuaCFunctionParameter }
-constructor TLuaCFunctionParameter.Create(AState: lua_State; AIndex: Integer);
+constructor TLuaStackVariable.Create(AState: lua_State; AIndex: Integer);
 begin
   inherited Create;
 
@@ -879,51 +1381,99 @@ begin
 end;
 
 
-function TLuaCFunctionParameter.GetAsBoolean: Boolean;
+function TLuaStackVariable.GetVariableType: TLuaVariableType;
 begin
-  Result := (lua_toboolean(State, GetIndex) <> 0);
+  Result := GetLuaVariableType(GetDataType);
 end;
 
 
-function TLuaCFunctionParameter.GetAsInteger: Integer;
+function TLuaStackVariable.GetDataType: TLuaDataType;
 begin
-  Result := lua_tointeger(State, GetIndex);
+  Result := GetLuaDataType(lua_type(State, Index));
 end;
 
 
-function TLuaCFunctionParameter.GetAsNumber: Double;
+function TLuaStackVariable.GetAsBoolean: Boolean;
 begin
-  Result := lua_tonumber(State, GetIndex);
+  Result := (lua_toboolean(State, Index) <> 0);
 end;
 
 
-function TLuaCFunctionParameter.GetAsUserData: Pointer;
+function TLuaStackVariable.GetAsInteger: Integer;
 begin
-  Result := lua_touserdata(State, GetIndex);
+  Result := lua_tointeger(State, Index);
 end;
 
 
-function TLuaCFunctionParameter.GetAsString: string;
+function TLuaStackVariable.GetAsNumber: Double;
 begin
-  Result := string(lua_tostring(State, GetIndex));
+  Result := lua_tonumber(State, Index);
 end;
 
 
-function TLuaCFunctionParameter.GetDataType: TLuaDataType;
+function TLuaStackVariable.GetAsUserData: Pointer;
 begin
-  Result := GetLuaDataType(lua_type(State, GetIndex));
+  Result := lua_touserdata(State, Index);
 end;
 
 
-function TLuaCFunctionParameter.GetIndex: Integer;
+function TLuaStackVariable.GetAsString: string;
 begin
-  Result := FIndex;
+  Result := LuaToString(State, Index);
 end;
 
 
-function TLuaCFunctionParameter.GetParameterType: TLuaParameterType;
+function TLuaStackVariable.GetAsTable: ILuaTable;
 begin
-  Result := GetLuaParameterType(GetDataType);
+  if not lua_istable(State, Index) then
+    Result := nil;
+
+  if not Assigned(FTable) then
+    FTable := TLuaCachedTable.Create(State, Index);
+
+  Result := FTable;
+end;
+
+
+procedure TLuaStackVariable.SetAsBoolean(ABoolean: Boolean);
+begin
+  lua_pushboolean(State, IfThen(ABoolean, 1, 0));
+  lua_replace(State, Index);
+end;
+
+
+procedure TLuaStackVariable.SetAsInteger(AInteger: Integer);
+begin
+  PushVariable(State, Self, VariableInteger);
+  lua_replace(State, Index);
+end;
+
+
+procedure TLuaStackVariable.SetAsNumber(ANumber: Double);
+begin
+  PushVariable(State, Self, VariableNumber);
+  lua_replace(State, Index);
+end;
+
+
+procedure TLuaStackVariable.SetAsString(AString: string);
+begin
+  PushVariable(State, Self, VariableString);
+  lua_replace(State, Index);
+end;
+
+
+procedure TLuaStackVariable.SetAsTable(ATable: ILuaTable);
+begin
+  PushVariable(State, Self, VariableTable);
+  lua_replace(State, Index);
+end;
+
+
+procedure TLuaStackVariable.SetAsUserData(AUserData: Pointer);
+begin
+  PushVariable(State, Self, VariableUserData);
+  lua_replace(State, Index);
 end;
 
 
@@ -935,14 +1485,14 @@ var
 begin
   inherited Create;
 
-  FParameters := TList<ILuaParameter>.Create;
+  FParameters := TList<ILuaVariable>.Create;
 
   if ACount > 0 then
   begin
     FParameters.Capacity := ACount;
 
     for parameterIndex := ACount downto 1 do
-      FParameters.Add(TLuaResultParameter.Create(AState, -ACount));
+      FParameters.Add(TLuaCachedVariable.Create(AState, -ACount));
 
     lua_pop(AState, ACount);
   end;
@@ -963,74 +1513,211 @@ begin
 end;
 
 
-function TLuaResultParameters.GetItem(Index: Integer): ILuaParameter;
+function TLuaResultParameters.GetItem(Index: Integer): ILuaVariable;
 begin
   Result := FParameters[Index];
 end;
 
 
-{ TCustomLuaParameter }
-function TCustomLuaParameter.GetAsBoolean: Boolean;
+{ TLuaVariable }
+constructor TLuaVariable.Create;
 begin
-  Result := FAsBoolean;
 end;
 
 
-function TCustomLuaParameter.GetAsInteger: Integer;
+constructor TLuaVariable.Create(ABoolean: Boolean);
 begin
-  Result := FAsInteger;
+  Create;
+  SetAsBoolean(ABoolean);
 end;
 
 
-function TCustomLuaParameter.GetAsNumber: Double;
+constructor TLuaVariable.Create(AInteger: Integer);
 begin
-  Result := FAsNumber;
+  Create;
+  SetAsInteger(AInteger);
 end;
 
 
-function TCustomLuaParameter.GetAsUserData: Pointer;
+constructor TLuaVariable.Create(ANumber: Double);
 begin
-  Result := FAsUserData;
+  Create;
+  SetAsNumber(ANumber);
 end;
 
 
-function TCustomLuaParameter.GetAsString: string;
+constructor TLuaVariable.Create(AUserData: Pointer);
 begin
-  Result := FAsString;
+  Create;
+  SetAsUserData(AUserData);
 end;
 
 
-function TCustomLuaParameter.GetDataType: TLuaDataType;
+constructor TLuaVariable.Create(const AString: string);
 begin
-  Result := FDataType;
+  Create;
+  SetAsString(AString);
 end;
 
 
-function TCustomLuaParameter.GetParameterType: TLuaParameterType;
+constructor TLuaVariable.Create(ATable: ILuaTable);
 begin
-  Result := FParameterType;
+  Create;
+  SetAsTable(ATable);
 end;
 
 
-function TCustomLuaParameter.GetIndex: Integer;
+function TLuaVariable.GetVariableType: TLuaVariableType;
 begin
-  Result := FIndex;
+  Result := VariableType;
 end;
 
 
-{ TLuaResultParameter }
-constructor TLuaResultParameter.Create(AState: lua_State; AIndex: Integer);
+function TLuaVariable.GetDataType: TLuaDataType;
+begin
+  Result := DataType;
+end;
+
+
+function TLuaVariable.GetAsBoolean: Boolean;
+begin
+  Result := BooleanValue;
+end;
+
+
+function TLuaVariable.GetAsInteger: Integer;
+begin
+  Result := IntegerValue;
+end;
+
+
+function TLuaVariable.GetAsNumber: Double;
+begin
+  Result := NumberValue;
+end;
+
+
+function TLuaVariable.GetAsUserData: Pointer;
+begin
+  Result := UserDataValue;
+end;
+
+
+function TLuaVariable.GetAsString: string;
+begin
+  Result := StringValue;
+end;
+
+
+function TLuaVariable.GetAsTable: ILuaTable;
+begin
+  Result := TableValue;
+end;
+
+
+procedure TLuaVariable.SetAsBoolean(ABoolean: Boolean);
+begin
+  VariableType := VariableBoolean;
+  DataType := LuaBoolean;
+  BooleanValue := ABoolean;
+end;
+
+
+procedure TLuaVariable.SetAsInteger(AInteger: Integer);
+begin
+  VariableType := VariableInteger;
+  DataType := LuaString;
+  IntegerValue := AInteger;
+end;
+
+
+procedure TLuaVariable.SetAsNumber(ANumber: Double);
+begin
+  VariableType := VariableNumber;
+  DataType := LuaNumber;
+  NumberValue := ANumber;
+end;
+
+
+procedure TLuaVariable.SetAsUserData(AUserData: Pointer);
+begin
+  VariableType := VariableUserData;
+  DataType := LuaLightUserData;
+  UserDataValue := AUserData;
+end;
+
+
+procedure TLuaVariable.SetAsString(AString: string);
+begin
+  VariableType := VariableString;
+  DataType := LuaString;
+  StringValue := AString;
+end;
+
+
+procedure TLuaVariable.SetAsTable(ATable: ILuaTable);
+begin
+  VariableType := VariableTable;
+  DataType := LuaTable;
+  TableValue := ATable;
+end;
+
+
+{ TLuaCachedVariable }
+constructor TLuaCachedVariable.Create(AState: lua_State; AIndex: Integer);
 begin
   inherited Create;
 
-  FIndex := AIndex;
-  FDataType := GetLuaDataType(lua_type(AState, AIndex));
-  FParameterType := GetLuaParameterType(FDataType);
-  FAsBoolean := (lua_toboolean(AState, AIndex) <> 0);
-  FAsInteger := lua_tointeger(AState, AIndex);
-  FAsNumber := lua_tonumber(AState, AIndex);
-  FAsUserData := lua_touserdata(AState, AIndex);
-  FAsString := string(lua_tostring(AState, AIndex));
+  DataType := GetLuaDataType(lua_type(AState, AIndex));
+  VariableType := GetLuaVariableType(FDataType);
+
+  BooleanValue := (lua_toboolean(AState, AIndex) <> 0);
+  IntegerValue := lua_tointeger(AState, AIndex);
+  NumberValue := lua_tonumber(AState, AIndex);
+  UserDataValue := lua_touserdata(AState, AIndex);
+
+  { While traversing a table, do not call lua_tolstring directly on a key,
+    unless you know that the key is actually a string. Recall that lua_tolstring
+    may change the value at the given index; this confuses the next call to
+    lua_next.
+
+    http://www.lua.org/manual/5.2/manual.html#lua_next }
+  case lua_type(AState, AIndex) of
+    LUA_TSTRING:  StringValue := LuaToString(AState, AIndex);
+    LUA_TNUMBER:  StringValue := FloatToStr(NumberValue);
+  end;
+
+  if lua_istable(AState, AIndex) then
+    TableValue := TLuaCachedTable.Create(AState, AIndex);
+end;
+
+
+{ TLuaCachedTable }
+constructor TLuaCachedTable.Create(AState: lua_State; AIndex: Integer);
+var
+  tableIndex: Integer;
+  key: ILuaVariable;
+  value: ILuaVariable;
+
+begin
+  inherited Create;
+
+  lua_pushnil(AState);
+
+  tableIndex := AIndex;
+  if AIndex < 0 then
+    Dec(tableIndex);
+
+  while (lua_next(AState, tableIndex) <> 0) do
+  begin
+    key := TLuaCachedVariable.Create(AState, -2);
+    value := TLuaCachedVariable.Create(AState, -1);
+
+    SetValue(key, value);
+
+    { Remove value, keep key for the next iteration }
+    lua_pop(AState, 1);
+  end;
 end;
 
 
@@ -1039,7 +1726,7 @@ constructor TLuaReadWriteParameters.Create;
 begin
   inherited Create;
 
-  FParameters := TList<ILuaParameter>.Create;
+  FParameters := TList<ILuaVariable>.Create;
 end;
 
 
@@ -1057,7 +1744,7 @@ begin
 end;
 
 
-function TLuaReadWriteParameters.GetItem(Index: Integer): ILuaParameter;
+function TLuaReadWriteParameters.GetItem(Index: Integer): ILuaVariable;
 begin
   Result := FParameters[Index];
 end;
@@ -1065,72 +1752,37 @@ end;
 
 procedure TLuaReadWriteParameters.Push(ABoolean: Boolean);
 begin
-  FParameters.Add(TLuaReadWriteParameter.Create(ABoolean));
+  FParameters.Add(TLuaVariable.Create(ABoolean));
 end;
 
 
 procedure TLuaReadWriteParameters.Push(AInteger: Integer);
 begin
-  FParameters.Add(TLuaReadWriteParameter.Create(AInteger));
+  FParameters.Add(TLuaVariable.Create(AInteger));
 end;
 
 
 procedure TLuaReadWriteParameters.Push(ANumber: Double);
 begin
-  FParameters.Add(TLuaReadWriteParameter.Create(ANumber));
+  FParameters.Add(TLuaVariable.Create(ANumber));
 end;
 
 
 procedure TLuaReadWriteParameters.Push(AUserData: Pointer);
 begin
-  FParameters.Add(TLuaReadWriteParameter.Create(AUserData));
+  FParameters.Add(TLuaVariable.Create(AUserData));
 end;
 
 
 procedure TLuaReadWriteParameters.Push(const AString: string);
 begin
-  FParameters.Add(TLuaReadWriteParameter.Create(AString));
+  FParameters.Add(TLuaVariable.Create(AString));
 end;
 
 
-{ TLuaReadWriteParameter }
-constructor TLuaReadWriteParameter.Create(ABoolean: Boolean);
+procedure TLuaReadWriteParameters.Push(ATable: ILuaTable);
 begin
-  FAsBoolean := ABoolean;
-  FDataType := LuaBoolean;
-  FParameterType := ParameterBoolean;
-end;
-
-
-constructor TLuaReadWriteParameter.Create(AInteger: Integer);
-begin
-  FAsInteger := AInteger;
-  FDataType := LuaString;
-  FParameterType := ParameterInteger;
-end;
-
-
-constructor TLuaReadWriteParameter.Create(ANumber: Double);
-begin
-  FAsNumber := ANumber;
-  FDataType := LuaNumber;
-  FParameterType := ParameterNumber;
-end;
-
-
-constructor TLuaReadWriteParameter.Create(AUserData: Pointer);
-begin
-  FAsUserData := AUserData;
-  FDataType := LuaUserData;
-  FParameterType := ParameterUserData;
-end;
-
-
-constructor TLuaReadWriteParameter.Create(const AString: string);
-begin
-  FAsString := AString;
-  FDataType := LuaString;
-  FParameterType := ParameterString;
+  FParameters.Add(TLuaVariable.Create(ATable));
 end;
 
 
@@ -1139,8 +1791,8 @@ constructor TLuaContext.Create(AState: lua_State);
 begin
   inherited Create;
 
-  FParameters := TLuaCFunctionParameters.Create(AState);
-  FResult := TLuaWriteParameters.Create(AState);
+  FParameters := TLuaStackParameters.Create(AState);
+  FResult := TLuaStackWriteParameters.Create(AState);
 end;
 
 
@@ -1157,7 +1809,7 @@ end;
 
 
 { TLuaResult }
-constructor TLuaWriteParameters.Create(AState: lua_State);
+constructor TLuaStackWriteParameters.Create(AState: lua_State);
 begin
   inherited Create;
 
@@ -1165,48 +1817,63 @@ begin
 end;
 
 
-function TLuaWriteParameters.GetCount: Integer;
+function TLuaStackWriteParameters.GetCount: Integer;
 begin
   Result := FCount;
 end;
 
 
-procedure TLuaWriteParameters.Push(ABoolean: Boolean);
+procedure TLuaStackWriteParameters.Push(ABoolean: Boolean);
 begin
   lua_pushboolean(State, IfThen(ABoolean, 1, 0));
   Pushed;
 end;
 
 
-procedure TLuaWriteParameters.Push(AInteger: Integer);
+procedure TLuaStackWriteParameters.Push(AInteger: Integer);
 begin
   lua_pushinteger(State, AInteger);
   Pushed;
 end;
 
 
-procedure TLuaWriteParameters.Push(ANumber: Double);
+procedure TLuaStackWriteParameters.Push(ANumber: Double);
 begin
   lua_pushnumber(State, ANumber);
   Pushed;
 end;
 
 
-procedure TLuaWriteParameters.Push(AUserData: Pointer);
+procedure TLuaStackWriteParameters.Push(AUserData: Pointer);
 begin
   lua_pushlightuserdata(State, AUserData);
   Pushed;
 end;
 
 
-procedure TLuaWriteParameters.Push(const AString: string);
+procedure TLuaStackWriteParameters.Push(const AString: string);
+var
+  value: PAnsiChar;
+
 begin
-  lua_pushstring(State, NilPAnsiChar(AString));
+  value := AllocLuaString(AString);
+  try
+    lua_pushlstring(State, value, Length(AString));
+    Pushed;
+  finally
+    FreeLuaString(value);
+  end;
+end;
+
+
+procedure TLuaStackWriteParameters.Push(ATable: ILuaTable);
+begin
+  PushTable(State, ATable);
   Pushed;
 end;
 
 
-procedure TLuaWriteParameters.Pushed;
+procedure TLuaStackWriteParameters.Pushed;
 begin
   Inc(FCount);
 end;
