@@ -250,10 +250,10 @@ type
     constructor Create;
     destructor Destroy; override;
 
-    procedure LoadFromString(const AData: string; const AChunkName: string = ''); virtual;
-    procedure LoadFromStream(AStream: TStream; AOwnership: TStreamOwnership = soReference; const AChunkName: string = ''); virtual;
-    procedure LoadFromFile(const AFileName: string; const AChunkName: string = ''); virtual;
-    procedure LoadFromScript(AScript: TLuaScript; AOwnership: TStreamOwnership = soReference; const AChunkName: string = ''); virtual;
+    procedure LoadFromString(const AData: string; AAutoRun: Boolean = True; const AChunkName: string = ''); virtual;
+    procedure LoadFromStream(AStream: TStream; AOwnership: TStreamOwnership = soReference; AAutoRun: Boolean = True; const AChunkName: string = ''); virtual;
+    procedure LoadFromFile(const AFileName: string; AAutoRun: Boolean = True; const AChunkName: string = ''); virtual;
+    procedure LoadFromScript(AScript: TLuaScript; AOwnership: TStreamOwnership = soReference; AAutoRun: Boolean = True; const AChunkName: string = ''); virtual;
 
     function GetGlobalVariable(const AName: string): ILuaVariable;
     procedure SetGlobalVariable(const AName: string; AVariable: TLuaImplicitVariable);
@@ -991,25 +991,25 @@ begin
 end;
 
 
-procedure TLua.LoadFromString(const AData: string; const AChunkName: string);
+procedure TLua.LoadFromString(const AData: string; AAutoRun: Boolean; const AChunkName: string);
 begin
-  LoadFromScript(TLuaScript.Create(AData), soOwned, AChunkName);
+  LoadFromScript(TLuaScript.Create(AData), soOwned, AAutoRun, AChunkName);
 end;
 
 
-procedure TLua.LoadFromStream(AStream: TStream; AOwnership: TStreamOwnership; const AChunkName: string);
+procedure TLua.LoadFromStream(AStream: TStream; AOwnership: TStreamOwnership; AAutoRun: Boolean; const AChunkName: string);
 begin
-  LoadFromScript(TLuaScript.Create(AStream, AOwnership), soOwned, AChunkName);
+  LoadFromScript(TLuaScript.Create(AStream, AOwnership), soOwned, AAutoRun, AChunkName);
 end;
 
 
-procedure TLua.LoadFromFile(const AFileName, AChunkName: string);
+procedure TLua.LoadFromFile(const AFileName: string; AAutoRun: Boolean; const AChunkName: string);
 begin
-  LoadFromScript(TLuaScript.Create(TFileStream.Create(AFileName, fmOpenRead or fmShareDenyNone), soOwned), soOwned, AChunkName);
+  LoadFromScript(TLuaScript.Create(TFileStream.Create(AFileName, fmOpenRead or fmShareDenyNone), soOwned), soOwned, AAutoRun, AChunkName);
 end;
 
 
-procedure TLua.LoadFromScript(AScript: TLuaScript; AOwnership: TStreamOwnership; const AChunkName: string);
+procedure TLua.LoadFromScript(AScript: TLuaScript; AOwnership: TStreamOwnership; AAutoRun: Boolean; const AChunkName: string);
 var
   chunkName: PAnsiChar;
 
@@ -1023,7 +1023,11 @@ begin
       FreeLuaString(chunkName);
     end;
 
-    AfterLoad;
+    if not Loaded then
+      AfterLoad;
+
+    if AAutoRun then
+      Run;
   finally
     if AOwnership = soOwned then
       FreeAndNil(AScript);
@@ -1139,9 +1143,14 @@ end;
 
 
 procedure TLua.RaiseLastLuaError;
+var
+  errorMessage: string;
+
 begin
-  // TODO shouldn't we pop the error messag efrom the stack?
-  raise ELuaException.Create(string(lua_tolstring(State, -1, nil)));
+  errorMessage := LuaToString(State, -1);
+  lua_pop(State, 1);
+
+  raise ELuaException.Create(errorMessage);
 end;
 
 

@@ -24,6 +24,8 @@ type
     procedure NewState;
     procedure LoadAndRunFromString;
     procedure LoadAndRunFromStream;
+    procedure LoadMultiple;
+    procedure ChunkNameInException;
 
     procedure Input;
     procedure Output;
@@ -86,7 +88,6 @@ end;
 procedure TTestWrapper.LoadAndRunFromString;
 begin
   Lua.LoadFromString('print("Hello world!")');
-  Lua.Run;
   CheckEquals('Hello world!', Printed.ToString);
 end;
 
@@ -94,8 +95,16 @@ end;
 procedure TTestWrapper.LoadAndRunFromStream;
 begin
   Lua.LoadFromStream(TStringStream.Create('print("Hello world!")'), soOwned);
-  Lua.Run;
   CheckEquals('Hello world!', Printed.ToString);
+end;
+
+
+procedure TTestWrapper.LoadMultiple;
+begin
+  Lua.LoadFromString('print "Hello world!"', True, 'Script1');
+  Lua.LoadFromString('print "Goodbye world!"', True, 'Script2');
+
+  CheckEquals('Hello world!Goodbye world!', Printed.ToString);
 end;
 
 
@@ -103,7 +112,6 @@ procedure TTestWrapper.Input;
 begin
   Lua.SetGlobalVariable('thingy', 'world');
   Lua.LoadFromString('print("Hello "..thingy.."!")');
-  Lua.Run;
 
   CheckEquals('Hello world!', Printed.ToString);
 end;
@@ -115,11 +123,30 @@ var
 
 begin
   Lua.LoadFromString('output = "Hello world!"');
-  Lua.Run;
 
   output := lua.GetGlobalVariable('output');
   CheckNotNull(output, 'output is nil');
   CheckEquals('Hello world!', output.AsString);
+end;
+
+
+procedure TTestWrapper.ChunkNameInException;
+begin
+  Lua.LoadFromString('print("This one''s alright")', True, 'Script1');
+
+  try
+    Lua.LoadFromString('print("This one isn''t"', True, 'Script2');
+    Fail('ELuaException expected');
+  except
+    on E:Exception do
+    begin
+      CheckIs(E, ELuaException);
+      CheckEquals('[string "Script2"]:1: '')'' expected near <eof>', E.Message);
+    end;
+  end;
+
+  Lua.LoadFromString('print("Fine again!")', True, 'Script3');
+  CheckEquals('This one''s alrightFine again!', Printed.ToString);
 end;
 
 
@@ -132,7 +159,6 @@ begin
     end);
 
   Lua.LoadFromString('print(myuppercase("Hello world!"))');
-  Lua.Run;
   CheckEquals('HELLO WORLD!', Printed.ToString);
 end;
 
@@ -149,6 +175,10 @@ begin
   returnValues := Lua.Call('sum', [1, 2]);
   CheckEquals(1, returnValues.Count, 'returnValues Count');
   CheckEquals(3, returnValues[0].AsInteger, 'returnValues[0]');
+
+  returnValues := Lua.Call('sum', [4, 12]);
+  CheckEquals(1, returnValues.Count, 'returnValues Count');
+  CheckEquals(16, returnValues[0].AsInteger, 'returnValues[0]');
 end;
 
 
@@ -211,7 +241,7 @@ begin
   input := TLuaTable.Create;
   input.SetValue('text', 'Hello world!');
 
-  Lua.LoadFromString('print(message.text)');
+  Lua.LoadFromString('print(message.text)', False);
   Lua.SetGlobalVariable('message', input);
   Lua.Run;
 
@@ -226,7 +256,6 @@ var
 
 begin
   Lua.LoadFromString('output = { answer = 42 }');
-  Lua.Run;
 
   output := lua.GetGlobalVariable('output');
   CheckNotNull(output, 'output is nil');
@@ -259,7 +288,6 @@ begin
 
   Lua.LoadFromString('table = invertTable({ value = "key" })'#13#10 +
                      'print(table.key)');
-  Lua.Run;
   CheckEquals('value', Printed.ToString);
 end;
 
