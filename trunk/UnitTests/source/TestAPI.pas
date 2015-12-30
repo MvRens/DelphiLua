@@ -49,8 +49,8 @@ end;
 
 
 type
-  PLuaScript = ^TLuaScript;
-  TLuaScript = record
+  PLuaAPIScript = ^TLuaAPIScript;
+  TLuaAPIScript = record
     Data: AnsiString;
     Remaining: Integer;
 
@@ -58,8 +58,8 @@ type
   end;
 
 
-{ TLuaScript }
-constructor TLuaScript.Create(const AData: string);
+{ TLuaAPIScript }
+constructor TLuaAPIScript.Create(const AData: string);
 begin
   Data := AnsiString(AData);
   Remaining := Length(Data);
@@ -68,7 +68,7 @@ end;
 
 function TestReaderProc(L: lua_State; ud: Pointer; var sz: size_t): PAnsiChar; cdecl;
 var
-  script: PLuaScript;
+  script: PLuaAPIScript;
 
 begin
   script := ud;
@@ -88,12 +88,12 @@ end;
 procedure TTestAPI.Load;
 var
   state: lua_State;
-  script: TLuaScript;
+  script: TLuaAPIScript;
 
 begin
   state := lua_newstate(@DefaultLuaAlloc, nil);
   try
-    script := TLuaScript.Create('print("Hello world!")');
+    script := TLuaAPIScript.Create('print("Hello world!")');
     CheckEquals(0, lua_load(state, @TestReaderProc, @script, nil, nil), 'lua_load result');
   finally
     lua_close(state);
@@ -104,14 +104,14 @@ end;
 procedure TTestAPI.LoadAndCall;
 var
   state: lua_State;
-  script: TLuaScript;
+  script: TLuaAPIScript;
 
 begin
   state := lua_newstate(@DefaultLuaAlloc, nil);
   try
     luaopen_base(state);
 
-    script := TLuaScript.Create('print("Hello world!")');
+    script := TLuaAPIScript.Create('print("Hello world!")');
     CheckEquals(0, lua_load(state, @TestReaderProc, @script, nil, nil), 'lua_load result');
 
     if lua_pcall(state, 0, 0, 0) <> 0 then
