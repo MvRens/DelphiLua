@@ -192,7 +192,7 @@ var
   lua_pushlstring: function (L: lua_State; s: PAnsiChar; l_: size_t): PAnsiChar; cdecl;
   lua_pushstring: function (L: lua_State; s: PAnsiChar): PAnsiChar; cdecl;
   lua_pushvfstring: function (L: lua_State; fmt: PAnsiChar; argp: array of const): PAnsiChar; cdecl;
-  lua_pushfstring: function (L: lua_State; fmt: PAnsiChar): PAnsiChar; cdecl; {$IFDEF FPC}varargs;{$ENDIF}
+  lua_pushfstring: function (L: lua_State; fmt: PAnsiChar): PAnsiChar; cdecl;
   lua_pushcclosure: procedure(L: lua_State; fn: lua_CFunction; n: Integer); cdecl;
   lua_pushboolean: procedure(L: lua_State; b: Integer); cdecl;
   lua_pushlightuserdata: procedure(L: lua_State; p: Pointer); cdecl;
@@ -205,10 +205,12 @@ var
   LUA_API void  (lua_getfield) (lua_State *L, int idx, const char *k);
   LUA_API void  (lua_rawget) (lua_State *L, int idx);
   *)
-  lua_rawgeti: procedure(L: lua_State; idx, n: integer); cdecl;
+  lua_rawgeti: procedure(L: lua_State; idx, n: Integer); cdecl;
   (*
   LUA_API void  (lua_rawgetp) (lua_State *L, int idx, const void *p);
-  LUA_API void  (lua_createtable) (lua_State *L, int narr, int nrec);
+  *)
+  lua_createtable: procedure(L: lua_State; narr: Integer; nrec: Integer); cdecl;
+  (*
   LUA_API void *(lua_newuserdata) (lua_State *L, size_t sz);
   LUA_API int   (lua_getmetatable) (lua_State *L, int objindex);
   LUA_API void  (lua_getuservalue) (lua_State *L, int idx);
@@ -216,9 +218,9 @@ var
 
   { set functions (stack -> Lua) }
   lua_setglobal: procedure(L: lua_State; value: PAnsiChar); cdecl;
+  lua_settable: procedure(L: lua_State; idx: Integer); cdecl;
+  lua_setfield: procedure(L: lua_State; idx: Integer; k: PAnsiChar); cdecl;
   (*
-  LUA_API void  (lua_settable) (lua_State *L, int idx);
-  LUA_API void  (lua_setfield) (lua_State *L, int idx, const char *k);
   LUA_API void  (lua_rawset) (lua_State *L, int idx);
   LUA_API void  (lua_rawseti) (lua_State *L, int idx, int n);
   LUA_API void  (lua_rawsetp) (lua_State *L, int idx, const void *p);
@@ -268,22 +270,19 @@ var
   #define LUA_GCINC		11
 
   LUA_API int (lua_gc) (lua_State *L, int what, int data);
-
-
-  /*
-  ** miscellaneous functions
-  */
-
-  LUA_API int   (lua_error) (lua_State *L);
-
-  LUA_API int   (lua_next) (lua_State *L, int idx);
-
-  LUA_API void  (lua_concat) (lua_State *L, int n);
-  LUA_API void  (lua_len)    (lua_State *L, int idx);
-
-  LUA_API lua_Alloc (lua_getallocf) (lua_State *L, void **ud);
-  LUA_API void      (lua_setallocf) (lua_State *L, lua_Alloc f, void *ud);
   *)
+
+
+var
+  { miscellaneous functions }
+  lua_error: function(L: lua_State): Integer; cdecl;
+  lua_next: function(L: lua_State; idx: Integer): Integer; cdecl;
+
+  lua_concat: procedure(L: lua_State; n: Integer); cdecl;
+  lua_len: procedure(L: lua_State; idx: Integer); cdecl;
+
+  lua_getallocf: function(L: lua_State; ud: Pointer): lua_Alloc; cdecl;
+  lua_setallocf: procedure(L: lua_State; f: lua_Alloc; ud: Pointer); cdecl;
 
 
   { some useful macros }
@@ -292,26 +291,19 @@ var
   function lua_tounsigned(L: lua_State; idx: Integer): lua_Unsigned; inline;
 
   procedure lua_pop(L: lua_State; n: Integer); inline;
-  (*
-  #define lua_pop(L,n)		lua_settop(L, -(n)-1)
-
-  #define lua_newtable(L)		lua_createtable(L, 0, 0)
-
-  #define lua_register(L,n,f) (lua_pushcfunction(L, (f)), lua_setglobal(L, (n)))
-  *)
-
+  procedure lua_newtable(L: lua_State); inline;
+  procedure lua_register(L: lua_State; name: PAnsiChar; f: lua_CFunction); inline;
   procedure lua_pushcfunction(L: lua_State; f: lua_CFunction); inline;
 
+  function lua_isfunction(L: lua_State; n: Integer): Boolean; inline;
+  function lua_istable(L: lua_State; n: Integer): Boolean; inline;
+  function lua_islightuserdata(L: lua_State; n: Integer): Boolean; inline;
+  function lua_isnil(L: lua_State; n: Integer): Boolean; inline;
+  function lua_isboolean(L: lua_State; n: Integer): Boolean; inline;
+  function lua_isthread(L: lua_State; n: Integer): Boolean; inline;
+  function lua_isnone(L: lua_State; n: Integer): Boolean; inline;
+  function lua_isnoneornil(L: lua_State; n: Integer): Boolean; inline;
   (*
-  #define lua_isfunction(L,n)	(lua_type(L, (n)) == LUA_TFUNCTION)
-  #define lua_istable(L,n)	(lua_type(L, (n)) == LUA_TTABLE)
-  #define lua_islightuserdata(L,n)	(lua_type(L, (n)) == LUA_TLIGHTUSERDATA)
-  #define lua_isnil(L,n)		(lua_type(L, (n)) == LUA_TNIL)
-  #define lua_isboolean(L,n)	(lua_type(L, (n)) == LUA_TBOOLEAN)
-  #define lua_isthread(L,n)	(lua_type(L, (n)) == LUA_TTHREAD)
-  #define lua_isnone(L,n)		(lua_type(L, (n)) == LUA_TNONE)
-  #define lua_isnoneornil(L, n)	(lua_type(L, (n)) <= 0)
-
   #define lua_pushliteral(L, s)	\
     lua_pushlstring(L, "" s, (sizeof(s)/sizeof(char))-1)
     *)
@@ -541,7 +533,10 @@ begin
   Load(@lua_getglobal, 'lua_getglobal');
 
   Load(@lua_rawgeti, 'lua_rawgeti');
+  Load(@lua_createtable, 'lua_createtable');
   Load(@lua_setglobal, 'lua_setglobal');
+  Load(@lua_settable, 'lua_settable');
+  Load(@lua_setfield, 'lua_setfield');
 
   Load(@lua_callk, 'lua_callk');
   Load(@lua_getctx, 'lua_getctx');
@@ -549,6 +544,16 @@ begin
 
   Load(@lua_load, 'lua_load');
   Load(@lua_dump, 'lua_dump');
+
+  Load(@lua_error, 'lua_error');
+  Load(@lua_next, 'lua_next');
+
+  Load(@lua_concat, 'lua_concat');
+  Load(@lua_len, 'lua_len');
+
+  Load(@lua_getallocf, 'lua_getallocf');
+  Load(@lua_setallocf, 'lua_setallocf');
+
 
   Load(@lua_getstack, 'lua_getstack');
   Load(@lua_getinfo, 'lua_getinfo');
@@ -632,9 +637,60 @@ begin
   lua_settop(L, -(n) - 1);
 end;
 
+procedure lua_newtable(L: lua_State); inline;
+begin
+  lua_createtable(L, 0, 0);
+end;
+
+procedure lua_register(L: lua_State; name: PAnsiChar; f: lua_CFunction); inline;
+begin
+  lua_pushcfunction(L, f);
+  lua_setglobal(L, name);
+end;
+
 procedure lua_pushcfunction(L: lua_State; f: lua_CFunction);
 begin
   lua_pushcclosure(L, f, 0);
+end;
+
+function lua_isfunction(L: lua_State; n: Integer): Boolean;
+begin
+  Result := lua_type(L, n) = LUA_TFUNCTION;
+end;
+
+function lua_istable(L: lua_State; n: Integer): Boolean;
+begin
+  Result := lua_type(L, n) = LUA_TTABLE;
+end;
+
+function lua_islightuserdata(L: lua_State; n: Integer): Boolean;
+begin
+  Result := lua_type(L, n) = LUA_TLIGHTUSERDATA;
+end;
+
+function lua_isnil(L: lua_State; n: Integer): Boolean;
+begin
+  Result := lua_type(L, n) = LUA_TNIL;
+end;
+
+function lua_isboolean(L: lua_State; n: Integer): Boolean;
+begin
+  Result := lua_type(L, n) = LUA_TBOOLEAN;
+end;
+
+function lua_isthread(L: lua_State; n: Integer): Boolean;
+begin
+  Result := lua_type(L, n) = LUA_TTHREAD;
+end;
+
+function lua_isnone(L: lua_State; n: Integer): Boolean;
+begin
+  Result := lua_type(L, n) = LUA_TNONE;
+end;
+
+function lua_isnoneornil(L: lua_State; n: Integer): Boolean;
+begin
+  Result := lua_type(L, n) <= 0;
 end;
 
 procedure lua_pushglobaltable(L: lua_State);

@@ -25,8 +25,20 @@ type
     procedure LoadAndRunFromString;
     procedure LoadAndRunFromStream;
 
-    procedure FunctionResult;
-    procedure CallLuaFunction;
+    procedure Input;
+    procedure Output;
+    procedure DelphiFunction;
+    procedure LuaFunction;
+    procedure LuaFunctionString;
+
+    procedure TableSetGet;
+    procedure TableSetTwice;
+    procedure TableSetDifferentTypes;
+
+    procedure TableInput;
+    procedure TableOutput;
+    procedure TableDelphiFunction;
+    procedure TableLuaFunction;
   end;
 
 
@@ -81,13 +93,37 @@ end;
 
 procedure TTestWrapper.LoadAndRunFromStream;
 begin
-  Lua.LoadFromStream(TStringStream.Create('print("Hello world!")'));
+  Lua.LoadFromStream(TStringStream.Create('print("Hello world!")'), soOwned);
   Lua.Run;
   CheckEquals('Hello world!', Printed.ToString);
 end;
 
 
-procedure TTestWrapper.FunctionResult;
+procedure TTestWrapper.Input;
+begin
+  Lua.SetGlobalVariable('thingy', 'world');
+  Lua.LoadFromString('print("Hello "..thingy.."!")');
+  Lua.Run;
+
+  CheckEquals('Hello world!', Printed.ToString);
+end;
+
+
+procedure TTestWrapper.Output;
+var
+  output: ILuaVariable;
+
+begin
+  Lua.LoadFromString('output = "Hello world!"');
+  Lua.Run;
+
+  output := lua.GetGlobalVariable('output');
+  CheckNotNull(output, 'output is nil');
+  CheckEquals('Hello world!', output.AsString);
+end;
+
+
+procedure TTestWrapper.DelphiFunction;
 begin
   Lua.RegisterFunction('myuppercase',
     procedure(AContext: ILuaContext)
@@ -101,7 +137,7 @@ begin
 end;
 
 
-procedure TTestWrapper.CallLuaFunction;
+procedure TTestWrapper.LuaFunction;
 var
   returnValues: ILuaReadParameters;
 
@@ -114,6 +150,139 @@ begin
   CheckEquals(1, returnValues.Count, 'returnValues Count');
   CheckEquals(3, returnValues[0].AsInteger, 'returnValues[0]');
 end;
+
+
+procedure TTestWrapper.LuaFunctionString;
+var
+  returnValues: ILuaReadParameters;
+
+begin
+  Lua.LoadFromString('function echo(sound)'#13#10 +
+                     '  return string.sub(sound, 2)'#13#10 +
+                     'end');
+
+  returnValues := Lua.Call('echo', ['hello?']);
+  CheckEquals(1, returnValues.Count, 'returnValues Count');
+  CheckEquals('ello?', returnValues[0].AsString, 'returnValues[0]');
+end;
+
+procedure TTestWrapper.TableSetGet;
+var
+  table: ILuaTable;
+
+begin
+  table := TLuaTable.Create;
+  table.SetValue('key', 'value');
+  CheckEquals('value', table.GetValue('key').AsString);
+end;
+
+
+procedure TTestWrapper.TableSetTwice;
+var
+  table: ILuaTable;
+
+begin
+  table := TLuaTable.Create;
+  table.SetValue('key', 'value');
+  table.SetValue('key', 'newvalue');
+  CheckEquals('newvalue', table.GetValue('key').AsString);
+end;
+
+
+procedure TTestWrapper.TableSetDifferentTypes;
+var
+  table: ILuaTable;
+
+begin
+  // Automatic number conversion is not applicable to table keys in Lua
+  table := TLuaTable.Create;
+  table.SetValue('1', 'stringValue');
+  table.SetValue(1, 'numberValue');
+  CheckEquals('stringValue', table.GetValue('1').AsString);
+  CheckEquals('numberValue', table.GetValue(1).AsString);
+end;
+
+
+procedure TTestWrapper.TableInput;
+var
+  input: ILuaTable;
+
+begin
+  input := TLuaTable.Create;
+  input.SetValue('text', 'Hello world!');
+
+  Lua.LoadFromString('print(message.text)');
+  Lua.SetGlobalVariable('message', input);
+  Lua.Run;
+
+  CheckEquals('Hello world!', Printed.ToString);
+end;
+
+
+procedure TTestWrapper.TableOutput;
+var
+  output: ILuaVariable;
+  answer: ILuaVariable;
+
+begin
+  Lua.LoadFromString('output = { answer = 42 }');
+  Lua.Run;
+
+  output := lua.GetGlobalVariable('output');
+  CheckNotNull(output, 'output is nil');
+  CheckNotNull(output.AsTable, 'output.AsTable is nil');
+
+  answer := output.AsTable.GetValue('answer');
+  CheckNotNull(answer, 'answer is nil');
+  CheckEquals(42, answer.AsInteger);
+end;
+
+
+procedure TTestWrapper.TableDelphiFunction;
+begin
+  Lua.RegisterFunction('invertTable',
+    procedure(AContext: ILuaContext)
+    var
+      input: ILuaTable;
+      output: ILuaTable;
+      pair: TLuaKeyValuePair;
+
+    begin
+      input := AContext.Parameters[0].AsTable;
+      output := TLuaTable.Create;
+
+      for pair in input do
+        output.SetValue(pair.Value, pair.Key);
+
+      AContext.Result.Push(output);
+    end);
+
+  Lua.LoadFromString('table = invertTable({ value = "key" })'#13#10 +
+                     'print(table.key)');
+  Lua.Run;
+  CheckEquals('value', Printed.ToString);
+end;
+
+
+procedure TTestWrapper.TableLuaFunction;
+var
+  input: ILuaTable;
+  returnValues: ILuaReadParameters;
+
+begin
+  input := TLuaTable.Create;
+  input.SetValue('bob', 'release roderick!');
+
+  Lua.LoadFromString('function pilate(crowd)'#13#10 +
+                     '  local value, count = string.gsub(crowd.bob, "r", "w")'#13#10 +
+                     '  return value'#13#10 +
+                     'end');
+
+  returnValues := Lua.Call('pilate', [input]);
+  CheckEquals(1, returnValues.Count, 'returnValues Count');
+  CheckEquals('welease wodewick!', returnValues[0].AsString, 'returnValue[0]');
+end;
+
 
 
 initialization
