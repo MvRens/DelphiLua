@@ -245,6 +245,7 @@ type
     procedure SetAutoOpenLibraries(const Value: TLuaLibraries); virtual;
   protected
     procedure CheckState; virtual;
+    procedure CheckIsFunction; virtual;
     procedure AfterLoad; virtual;
 
     function GetRegisteredFunctionCookie: Integer; virtual;
@@ -262,16 +263,17 @@ type
     procedure LoadFromFile(const AFileName: string; AAutoRun: Boolean = True; const AChunkName: string = ''); virtual;
     procedure LoadFromScript(AScript: TLuaScript; AOwnership: TStreamOwnership = soReference; AAutoRun: Boolean = True; const AChunkName: string = ''); virtual;
 
-    function GetGlobalVariable(const AName: string): ILuaVariable;
-    procedure SetGlobalVariable(const AName: string; AVariable: TLuaImplicitVariable);
-    procedure RegisterFunction(const AName: string; AFunction: TLuaCFunction);
+    function GetGlobalVariable(const AName: string): ILuaVariable; virtual;
+    procedure SetGlobalVariable(const AName: string; AVariable: TLuaImplicitVariable); virtual;
+    procedure RegisterFunction(const AName: string; AFunction: TLuaCFunction); virtual;
 
     procedure OpenLibraries(ALibraries: TLuaLibraries); virtual;
 
-    { Run or GetByteCode should only be called right after one of the
+    { These methods should only be called right after one of the
       LoadFrom methods, which must have AutoRun set to False. }
     procedure Run; virtual;
     procedure GetByteCode(AStream: TStream; APop: Boolean = False); virtual;
+    procedure Capture(const AName: string); virtual;
 
     function Call(const AFunctionName: string): ILuaReadParameters; overload; virtual;
     function Call(const AFunctionName: string; AParameters: array of const): ILuaReadParameters; overload; virtual;
@@ -1178,42 +1180,41 @@ begin
   else
   begin
     if TLuaLibrary.Base in ALibraries then
-      luaopen_base(State);
+      luaL_requiref(State, 'base', luaopen_base, 1);
 
     if TLuaLibrary.Coroutine in ALibraries then
-      luaopen_coroutine(State);
+      luaL_requiref(State, 'coroutine', luaopen_coroutine, 1);
 
     if TLuaLibrary.Table in ALibraries then
-      luaopen_table(State);
+      luaL_requiref(State, 'table', luaopen_table, 1);
 
     if TLuaLibrary.IO in ALibraries then
-      luaopen_io(State);
+      luaL_requiref(State, 'io', luaopen_io, 1);
 
     if TLuaLibrary.OS in ALibraries then
-      luaopen_os(State);
+      luaL_requiref(State, 'os', luaopen_os, 1);
 
     if TLuaLibrary.StringLib in ALibraries then
-      luaopen_string(State);
+      luaL_requiref(State, 'string', luaopen_string, 1);
 
     if TLuaLibrary.Bit32 in ALibraries then
-      luaopen_bit32(State);
+      luaL_requiref(State, 'bit32', luaopen_bit32, 1);
 
     if TLuaLibrary.Math in ALibraries then
-      luaopen_math(State);
+      luaL_requiref(State, 'math', luaopen_math, 1);
 
     if TLuaLibrary.Debug in ALibraries then
-      luaopen_debug(State);
+      luaL_requiref(State, 'debug', luaopen_debug, 1);
 
     if TLuaLibrary.Package in ALibraries then
-      luaopen_package(State);
+      luaL_requiref(State, 'package', luaopen_package, 1);
   end;
 end;
 
 
 procedure TLua.Run;
 begin
-  if not lua_isfunction(State, -1) then
-    raise ELuaNoFunctionException.Create('No function on top of the stack, use the LoadFrom methods first');
+  CheckIsFunction;
 
   if lua_pcall(State, 0, 0, 0) <> 0 then
     TLuaHelpers.RaiseLastLuaError(State);
@@ -1225,9 +1226,9 @@ end;
 procedure TLua.GetByteCode(AStream: TStream; APop: Boolean);
 var
   returnCode: Integer;
+
 begin
-  if not lua_isfunction(State, -1) then
-    raise ELuaNoFunctionException.Create('No function on top of the stack, use the LoadFrom methods first');
+  CheckIsFunction;
 
   try
     returnCode := lua_dump(State, LuaWrapperWriter, @AStream);
@@ -1237,6 +1238,42 @@ begin
     if APop then
       lua_pop(State, 1);
   end;
+end;
+
+
+procedure TLua.Capture(const AName: string);
+var
+  name: PAnsiChar;
+
+begin
+  CheckIsFunction;
+
+  // Create a new table to serve as the environment
+  lua_newtable(State);
+
+  // Set the global AName to the new table
+  lua_pushvalue(State, -1);
+  name := TLuaHelpers.AllocLuaString(AName);
+  try
+    lua_setglobal(State, name);
+  finally
+    TLuaHelpers.FreeLuaString(name);
+  end;
+
+  // Set the global environment as the table's metatable index, so calls to
+  // global functions and variables still work
+  lua_newtable(State);
+  TLuaHelpers.PushString(State, '__index');
+  lua_pushglobaltable(State);
+  lua_settable(State, -3);
+
+  lua_setmetatable(State, -2);
+
+  // Set the new table as the environment (upvalue at index 1)
+  lua_setupvalue(State, -2, 1);
+
+  if lua_pcall(State, 0, 0, 0) <> 0 then
+    TLuaHelpers.RaiseLastLuaError(State);
 end;
 
 
@@ -1280,6 +1317,13 @@ begin
 
   if not HasState then
     DoNewState;
+end;
+
+
+procedure TLua.CheckIsFunction;
+begin
+  if not lua_isfunction(State, -1) then
+    raise ELuaNoFunctionException.Create('No function on top of the stack, use the LoadFrom methods first');
 end;
 
 
