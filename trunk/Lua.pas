@@ -161,28 +161,32 @@ var
   lua_topointer: function (L: lua_State; idx: Integer): Pointer; cdecl;
 
 
-  (*
-  /*
-  ** Comparison and arithmetic functions
-  */
+const
+  { Comparison and arithmetic functions }
+  LUA_OPADD = 0; { ORDER TM }
+  LUA_OPSUB = 1;
+  LUA_OPMUL = 2;
+  LUA_OPDIV = 3;
+  LUA_OPMOD = 4;
+  LUA_OPPOW = 5;
+  LUA_OPUNM = 6;
 
-  #define LUA_OPADD	0	/* ORDER TM */
-  #define LUA_OPSUB	1
-  #define LUA_OPMUL	2
-  #define LUA_OPDIV	3
-  #define LUA_OPMOD	4
-  #define LUA_OPPOW	5
-  #define LUA_OPUNM	6
 
-  LUA_API void  (lua_arith) (lua_State *L, int op);
+var
+  lua_arith: procedure(L: lua_State; op: Integer); cdecl;
 
-  #define LUA_OPEQ	0
-  #define LUA_OPLT	1
-  #define LUA_OPLE	2
 
-  LUA_API int   (lua_rawequal) (lua_State *L, int idx1, int idx2);
-  LUA_API int   (lua_compare) (lua_State *L, int idx1, int idx2, int op);
-  *)
+const
+  LUA_OPEQ = 0;
+  LUA_OPLT = 1;
+  LUA_OPLE = 2;
+
+
+var
+
+  lua_rawequal: function(L: lua_State; idx1, idx2: Integer): Integer; cdecl;
+  lua_compare: function(L: lua_State; idx1, idx2, op: Integer): Integer; cdecl;
+
 
   { push functions (C -> stack) }
   lua_pushnil: procedure(L: lua_State); cdecl;
@@ -200,33 +204,25 @@ var
 
   { get functions (Lua -> stack) }
   lua_getglobal: procedure(L: lua_State; value: PAnsiChar); cdecl;
-  (*
-  LUA_API void  (lua_gettable) (lua_State *L, int idx);
-  LUA_API void  (lua_getfield) (lua_State *L, int idx, const char *k);
-  LUA_API void  (lua_rawget) (lua_State *L, int idx);
-  *)
+  lua_gettable: procedure(L: lua_State; idx: Integer); cdecl;
+  lua_getfield: procedure(L: lua_State; idx: Integer; k: PAnsiChar); cdecl;
+  lua_rawget: procedure(L: lua_State; idx: Integer); cdecl;
   lua_rawgeti: procedure(L: lua_State; idx, n: Integer); cdecl;
-  (*
-  LUA_API void  (lua_rawgetp) (lua_State *L, int idx, const void *p);
-  *)
+  lua_rawgetp: procedure(L: lua_State; idx: Integer; p: Pointer); cdecl;
   lua_createtable: procedure(L: lua_State; narr: Integer; nrec: Integer); cdecl;
-  (*
-  LUA_API void *(lua_newuserdata) (lua_State *L, size_t sz);
-  LUA_API int   (lua_getmetatable) (lua_State *L, int objindex);
-  LUA_API void  (lua_getuservalue) (lua_State *L, int idx);
-  *)
+  lua_newuserdata: procedure(L: lua_State; sz: size_t); cdecl;
+  lua_getmetatable: function(L: lua_State; objindex: Integer): Integer; cdecl;
+  lua_getuservalue: procedure(L: lua_State; idx: Integer); cdecl;
 
   { set functions (stack -> Lua) }
   lua_setglobal: procedure(L: lua_State; value: PAnsiChar); cdecl;
   lua_settable: procedure(L: lua_State; idx: Integer); cdecl;
   lua_setfield: procedure(L: lua_State; idx: Integer; k: PAnsiChar); cdecl;
-  (*
-  LUA_API void  (lua_rawset) (lua_State *L, int idx);
-  LUA_API void  (lua_rawseti) (lua_State *L, int idx, int n);
-  LUA_API void  (lua_rawsetp) (lua_State *L, int idx, const void *p);
-  LUA_API int   (lua_setmetatable) (lua_State *L, int objindex);
-  LUA_API void  (lua_setuservalue) (lua_State *L, int idx);
-  *)
+  lua_rawset: procedure(L: lua_State; idx: Integer); cdecl;
+  lua_rawseti: procedure(L: lua_State; idx, n: Integer); cdecl;
+  lua_rawsetp: procedure(L: lua_State; idx: Integer; p: Pointer); cdecl;
+  lua_setmetatable: function(L: lua_State; objindex: Integer): Integer; cdecl;
+  lua_setuservalue: procedure(L: lua_State; idx: Integer); cdecl;
 
 
   { 'load' and 'call' functions (load and run Lua code) }
@@ -303,10 +299,7 @@ var
   function lua_isthread(L: lua_State; n: Integer): Boolean; inline;
   function lua_isnone(L: lua_State; n: Integer): Boolean; inline;
   function lua_isnoneornil(L: lua_State; n: Integer): Boolean; inline;
-  (*
-  #define lua_pushliteral(L, s)	\
-    lua_pushlstring(L, "" s, (sizeof(s)/sizeof(char))-1)
-    *)
+  function lua_pushliteral(L: lua_State; const s: AnsiString): PAnsiChar; inline;
 
   procedure lua_pushglobaltable(L: lua_State); inline;
   function lua_tostring(L: lua_State; idx: Integer): PAnsiChar; inline;
@@ -517,6 +510,10 @@ begin
   Load(@lua_tothread, 'lua_tothread');
   Load(@lua_topointer, 'lua_topointer');
 
+  Load(@lua_arith, 'lua_arith');
+  Load(@lua_rawequal, 'lua_rawequal');
+  Load(@lua_compare, 'lua_compare');
+
   Load(@lua_pushnil, 'lua_pushnil');
   Load(@lua_pushnumber, 'lua_pushnumber');
   Load(@lua_pushinteger, 'lua_pushinteger');
@@ -531,12 +528,25 @@ begin
   Load(@lua_pushthread, 'lua_pushthread');
 
   Load(@lua_getglobal, 'lua_getglobal');
-
+  Load(@lua_gettable, 'lua_gettable');
+  Load(@lua_getfield, 'lua_getfield');
+  Load(@lua_rawget, 'lua_rawget');
   Load(@lua_rawgeti, 'lua_rawgeti');
+  Load(@lua_rawgetp, 'lua_rawgetp');
+  Load(@lua_newuserdata, 'lua_newuserdata');
+  Load(@lua_getmetatable, 'lua_getmetatable');
+  Load(@lua_getuservalue, 'lua_getuservalue');
+
   Load(@lua_createtable, 'lua_createtable');
   Load(@lua_setglobal, 'lua_setglobal');
   Load(@lua_settable, 'lua_settable');
   Load(@lua_setfield, 'lua_setfield');
+
+  Load(@lua_rawset, 'lua_rawset');
+  Load(@lua_rawseti, 'lua_rawseti');
+  Load(@lua_rawsetp, 'lua_rawsetp');
+  Load(@lua_setmetatable, 'lua_setmetatable');
+  Load(@lua_setuservalue, 'lua_setuservalue');
 
   Load(@lua_callk, 'lua_callk');
   Load(@lua_getctx, 'lua_getctx');
@@ -691,6 +701,11 @@ end;
 function lua_isnoneornil(L: lua_State; n: Integer): Boolean;
 begin
   Result := lua_type(L, n) <= 0;
+end;
+
+function lua_pushliteral(L: lua_State; const s: AnsiString): PAnsiChar;
+begin
+  Result := lua_pushlstring(L, PAnsiChar(s), Length(s));
 end;
 
 procedure lua_pushglobaltable(L: lua_State);

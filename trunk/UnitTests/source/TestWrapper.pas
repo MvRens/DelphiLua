@@ -31,6 +31,7 @@ type
     procedure Output;
     procedure DelphiFunction;
     procedure LuaFunction;
+    procedure LuaFunctionDefaultResult;
     procedure LuaFunctionString;
 
     procedure TableSetGet;
@@ -41,6 +42,9 @@ type
     procedure TableOutput;
     procedure TableDelphiFunction;
     procedure TableLuaFunction;
+
+    procedure VariableFunction;
+    procedure ByteCode;
   end;
 
 
@@ -182,6 +186,21 @@ begin
 end;
 
 
+procedure TTestWrapper.LuaFunctionDefaultResult;
+var
+  returnValues: ILuaReadParameters;
+
+begin
+  Lua.LoadFromString('function sum(a, b)'#13#10 +
+                     '  return a + b'#13#10 +
+                     'end');
+
+  returnValues := Lua.Call('sum', [1, 2]);
+  CheckEquals(1, returnValues.Count, 'returnValues Count');
+  CheckEquals(3, returnValues.AsInteger, 'returnValues');
+end;
+
+
 procedure TTestWrapper.LuaFunctionString;
 var
   returnValues: ILuaReadParameters;
@@ -311,6 +330,51 @@ begin
   CheckEquals('welease wodewick!', returnValues[0].AsString, 'returnValue[0]');
 end;
 
+
+procedure TTestWrapper.VariableFunction;
+var
+  functions: ILuaTable;
+  returnValues: ILuaReadParameters;
+
+begin
+  Lua.LoadFromString('functions = {}'#13#10 +
+                     'functions.callme = function(name)'#13#10 +
+                     '  return "Hello "..name'#13#10 +
+                     'end'#13#10 +
+                     'functions.callmetoo = function()'#13#10 +
+                     '  print("So long, and thanks for all the fish.")'#13#10 +
+                     'end'#13#10);
+
+  functions := Lua.GetGlobalVariable('functions').AsTable;
+  returnValues := functions.GetValue('callme').AsFunction.Call(['Jack']);
+
+  CheckEquals('Hello Jack', returnValues.AsString);
+end;
+
+
+procedure TTestWrapper.ByteCode;
+var
+  compileLua: TLua;
+  byteCode: TMemoryStream;
+
+begin
+  byteCode := TMemoryStream.Create;
+  try
+    compileLua := TLua.Create;
+    try
+      compileLua.LoadFromString('print("Hello world!")', False);
+      compileLua.GetByteCode(byteCode, True);
+    finally
+      FreeAndNil(compileLua);
+    end;
+
+    byteCode.Position := 0;
+    Lua.LoadFromStream(byteCode);
+    CheckEquals('Hello world!', Printed.ToString);
+  finally
+    FreeAndNil(byteCode);
+  end;
+end;
 
 
 initialization
