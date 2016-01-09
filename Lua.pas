@@ -394,6 +394,8 @@ var
 
   { open all previous libraries }
   luaL_openlibs: procedure(L: lua_State); cdecl;
+  luaL_requiref: procedure(L: lua_State; modname: PAnsiChar; openf: lua_CFunction; glb: Integer); cdecl;
+
 
 
 type
@@ -582,6 +584,7 @@ begin
   Load(@luaopen_package, 'luaopen_package');
 
   Load(@luaL_openlibs, 'luaL_openlibs');
+  Load(@luaL_requiref, 'luaL_requiref');
 
   Load(@luaL_setfuncs, 'luaL_setfuncs');
 end;

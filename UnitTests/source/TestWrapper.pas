@@ -25,6 +25,7 @@ type
     procedure LoadAndRunFromString;
     procedure LoadAndRunFromStream;
     procedure LoadMultiple;
+    procedure LoadMultipleSharedVariable;
     procedure ChunkNameInException;
 
     procedure Input;
@@ -45,6 +46,8 @@ type
 
     procedure VariableFunction;
     procedure ByteCode;
+    procedure Capture;
+    procedure DenyRequire;
   end;
 
 
@@ -65,6 +68,7 @@ begin
   FPrinted := TStringBuilder.Create;
 
   FLua := TLua.Create;
+  FLua.AutoOpenLibraries := [StringLib];
   FLua.RegisterFunction('print',
     procedure(AContext: ILuaContext)
     begin
@@ -111,6 +115,14 @@ begin
   CheckEquals('Hello world!Goodbye world!', Printed.ToString);
 end;
 
+
+procedure TTestWrapper.LoadMultipleSharedVariable;
+begin
+  Lua.LoadFromString('message = "Hello world!"', True, 'Script1');
+  Lua.LoadFromString('print(message)', True, 'Script2');
+
+  CheckEquals('Hello world!', Printed.ToString);
+end;
 
 procedure TTestWrapper.Input;
 begin
@@ -373,6 +385,41 @@ begin
     CheckEquals('Hello world!', Printed.ToString);
   finally
     FreeAndNil(byteCode);
+  end;
+end;
+
+
+procedure TTestWrapper.Capture;
+begin
+  // Capture is a convenience method which puts a script's variables and
+  // functions in a global table variable. Useful for example when
+  // implementing a sandboxed API.
+  Lua.LoadFromString('message = "Hello world!"'#13#10 +
+                     'function outputMessage()'#13#10 +
+                     '  print(message)'#13#10 +
+                     'end', False, 'Script1');
+  Lua.Capture('Captured');
+
+  Lua.LoadFromString('print(Captured.message)'#13#10 +
+                     'Captured.message = "Goodbye world!"'#13#10 +
+                     'Captured.outputMessage()', True, 'Script2');
+
+  CheckEquals('Hello world!Goodbye world!', Printed.ToString);
+end;
+
+
+procedure TTestWrapper.DenyRequire;
+begin
+  try
+    // This should fail, since we're not loading the Package library which
+    // adds the require function that can be considered a security risk.
+    Lua.LoadFromString('require("Test")');
+    Fail('ELuaException expected');
+  except
+    on E:Exception do
+    begin
+      CheckIs(E, ELuaException);
+    end;
   end;
 end;
 
