@@ -60,7 +60,7 @@ const
 const
   { thread status }
   LUA_OK        = 0;
-  LUA_YIELD	    = 1;
+  LUA_YIELD_    = 1;
   LUA_ERRRUN	  = 2;
   LUA_ERRSYNTAX = 3;
   LUA_ERRMEM	  = 4;
@@ -183,7 +183,6 @@ const
 
 
 var
-
   lua_rawequal: function(L: lua_State; idx1, idx2: Integer): Integer; cdecl;
   lua_compare: function(L: lua_State; idx1, idx2, op: Integer): Integer; cdecl;
 
@@ -238,35 +237,32 @@ var
   function lua_pcall(L: lua_State; nargs, nresults, errfunc: Integer): Integer; inline;
 
 
-(*
-  /*
-  ** coroutine functions
-  */
-  LUA_API int  (lua_yieldk) (lua_State *L, int nresults, int ctx,
-                             lua_CFunction k);
-  #define lua_yield(L,n)		lua_yieldk(L, (n), 0, NULL)
-  LUA_API int  (lua_resume) (lua_State *L, lua_State *from, int narg);
-  LUA_API int  (lua_status) (lua_State *L);
+var
+  { coroutine functions }
+  lua_yieldk: function(L: lua_State; nresults, ctx: Integer; k: lua_CFunction): Integer; cdecl;
+  lua_resume: function(L, from: lua_State; nargs: Integer): Integer; cdecl;
+  lua_status: function(L: lua_State): Integer; cdecl;
 
-  /*
-  ** garbage-collection function and options
-  */
+  function lua_yield(L: lua_State; nresults: Integer): Integer; inline;
 
-  #define LUA_GCSTOP		0
-  #define LUA_GCRESTART		1
-  #define LUA_GCCOLLECT		2
-  #define LUA_GCCOUNT		3
-  #define LUA_GCCOUNTB		4
-  #define LUA_GCSTEP		5
-  #define LUA_GCSETPAUSE		6
-  #define LUA_GCSETSTEPMUL	7
-  #define LUA_GCSETMAJORINC	8
-  #define LUA_GCISRUNNING		9
-  #define LUA_GCGEN		10
-  #define LUA_GCINC		11
 
-  LUA_API int (lua_gc) (lua_State *L, int what, int data);
-  *)
+const
+  { garbage-collection function and options }
+  LUA_GCSTOP = 0;
+  LUA_GCRESTART = 1;
+  LUA_GCCOLLECT = 2;
+  LUA_GCCOUNT = 3;
+  LUA_GCCOUNTB = 4;
+  LUA_GCSTEP = 5;
+  LUA_GCSETPAUSE = 6;
+  LUA_GCSETSTEPMU = 7;
+  LUA_GCSETMAJORIN = 8;
+  LUA_GCISRUNNING = 9;
+  LUA_GCGEN = 0;
+  LUA_GCINC = 1;
+
+var
+  lua_gc: function(L: lua_State; what, data: Integer): Integer; cdecl;
 
 
 var
@@ -304,42 +300,30 @@ var
   procedure lua_pushglobaltable(L: lua_State); inline;
   function lua_tostring(L: lua_State; idx: Integer): PAnsiChar; inline;
 
-  (*
+
+const
+  {======================================================================
+   Debug API
+  =======================================================================}
+
+  { Event codes }
+  LUA_HOOKCALL  = 0;
+  LUA_HOOKRET = 1;
+  LUA_HOOKLINE  = 2;
+  LUA_HOOKCOUNT = 3;
+  LUA_HOOKTAILCALL = 4;
 
 
+  { Event masks }
+  LUA_MASKCALL = (1 shl LUA_HOOKCALL);
+  LUA_MASKRET = (1 shl LUA_HOOKRET);
+  LUA_MASKLINE =  (1 shl LUA_HOOKLINE);
+  LUA_MASKCOUNT = (1 shl LUA_HOOKCOUNT);
 
-  /*
-  ** {======================================================================
-  ** Debug API
-  ** =======================================================================
-  */
-
-
-  /*
-  ** Event codes
-  */
-  #define LUA_HOOKCALL	0
-  #define LUA_HOOKRET	1
-  #define LUA_HOOKLINE	2
-  #define LUA_HOOKCOUNT	3
-  #define LUA_HOOKTAILCALL 4
-
-
-  /*
-  ** Event masks
-  */
-  #define LUA_MASKCALL	(1 << LUA_HOOKCALL)
-  #define LUA_MASKRET	(1 << LUA_HOOKRET)
-  #define LUA_MASKLINE	(1 << LUA_HOOKLINE)
-  #define LUA_MASKCOUNT	(1 << LUA_HOOKCOUNT)
-
-
-  /* Functions to be called by the debugger in specific events */
-  typedef void (*lua_Hook) (lua_State *L, lua_Debug *ar);
-  *)
 
 const
   LUA_IDSIZE = 60;
+
 
 type
   lua_Debug = record
@@ -359,29 +343,28 @@ type
     //struct CallInfo *i_ci;  /* active function */
   end;
 
+  { Functions to be called by the debugger in specific events }
+  lua_Hook = procedure(L: lua_State; var ar: lua_Debug); cdecl;
+
 
 var
   lua_getstack: function(L: lua_State; level: Integer; var ar: lua_Debug): Integer; cdecl;
   lua_getinfo: function(L: lua_State; what: PAnsiChar; var ar: lua_Debug): Integer; cdecl;
 
-  (*
-  LUA_API const char *(lua_getlocal) (lua_State *L, const lua_Debug *ar, int n);
-  LUA_API const char *(lua_setlocal) (lua_State *L, const lua_Debug *ar, int n);
-  LUA_API const char *(lua_getupvalue) (lua_State *L, int funcindex, int n);
-  LUA_API const char *(lua_setupvalue) (lua_State *L, int funcindex, int n);
+  lua_getlocal: function(L: lua_State; var ar: lua_Debug; n: Integer): PAnsiChar; cdecl;
+  lua_setlocal: function(L: lua_State; var ar: lua_Debug; n: Integer): PAnsiChar; cdecl;
+  lua_getupvalue: function(L: lua_State; funcindex, n: Integer): PAnsiChar; cdecl;
+  lua_setupvalue: function(L: lua_State; funcindex, n: Integer): PAnsiChar; cdecl;
 
-  LUA_API void *(lua_upvalueid) (lua_State *L, int fidx, int n);
-  LUA_API void  (lua_upvaluejoin) (lua_State *L, int fidx1, int n1,
-                                                 int fidx2, int n2);
+  lua_upvalueid: function(L: lua_State; fidx, n: Integer): Pointer; cdecl;
+  lua_upvaluejoin: procedure(L: lua_State; fidx1, n1, fidx2, n2: Integer);
 
-  LUA_API int (lua_sethook) (lua_State *L, lua_Hook func, int mask, int count);
-  LUA_API lua_Hook (lua_gethook) (lua_State *L);
-  LUA_API int (lua_gethookmask) (lua_State *L);
-  LUA_API int (lua_gethookcount) (lua_State *L);
-  /* }====================================================================== */
+  lua_sethook: function(L: lua_State; func: lua_Hook; mask, count: Integer): Integer; cdecl;
+  lua_gethook: function(L: lua_State): lua_Hook; cdecl;
+  lua_gethookmask: function(L: lua_State): Integer; cdecl;
+  lua_gethookcount: function(L: lua_State): Integer; cdecl;
 
-  #endif
-*)
+  {====================================================================== }
 
 
 const
@@ -552,6 +535,12 @@ begin
   Load(@lua_getctx, 'lua_getctx');
   Load(@lua_pcallk, 'lua_pcallk');
 
+  Load(@lua_yieldk, 'lua_yieldk');
+  Load(@lua_resume, 'lua_resume');
+  Load(@lua_status, 'lua_status');
+
+  Load(@lua_gc, 'lua_gc');
+
   Load(@lua_load, 'lua_load');
   Load(@lua_dump, 'lua_dump');
 
@@ -568,6 +557,18 @@ begin
   Load(@lua_getstack, 'lua_getstack');
   Load(@lua_getinfo, 'lua_getinfo');
 
+  Load(@lua_getlocal, 'lua_getlocal');
+  Load(@lua_setlocal, 'lua_setlocal');
+  Load(@lua_getupvalue, 'lua_getupvalue');
+  Load(@lua_setupvalue, 'lua_setupvalue');
+
+  Load(@lua_upvalueid, 'lua_upvalueid');
+  Load(@lua_upvaluejoin, 'lua_upvaluejoin');
+
+  Load(@lua_sethook, 'lua_sethook');
+  Load(@lua_gethook, 'lua_gethook');
+  Load(@lua_gethookmask, 'lua_gethookmask');
+  Load(@lua_gethookcount, 'lua_gethookcount');
 
   Load(@luaopen_base, 'luaopen_base');
   Load(@luaopen_coroutine, 'luaopen_coroutine');
@@ -625,6 +626,11 @@ end;
 function lua_pcall(L: lua_State; nargs, nresults, errfunc: Integer): Integer;
 begin
   Result := lua_pcallk(L, nargs, nresults, errfunc, 0, nil);
+end;
+
+function lua_yield(L: lua_State; nresults: Integer): Integer;
+begin
+  Result := lua_yieldk(L, nresults, 0, nil);
 end;
 
 function lua_tonumber(L: lua_State; idx: Integer): lua_Number;
