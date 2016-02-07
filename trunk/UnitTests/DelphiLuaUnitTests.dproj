@@ -87,8 +87,8 @@
 				<MainSource>MainSource</MainSource>
 			</DelphiCompile>
 			<DCCReference Include="source\TestAPI.pas"/>
+			<DCCReference Include="..\Lua.API.pas"/>
 			<DCCReference Include="..\Lua.pas"/>
-			<DCCReference Include="..\Lua.Wrapper.pas"/>
 			<DCCReference Include="source\TestWrapper.pas"/>
 			<BuildConfiguration Include="Release">
 				<Key>Cfg_2</Key>
