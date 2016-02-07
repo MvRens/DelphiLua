@@ -69,7 +69,7 @@ const
 
 
 type
-  size_t = Cardinal;
+  size_t = NativeUint;
   psize_t = ^size_t;
 
   lua_State = type Pointer;

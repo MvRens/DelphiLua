@@ -6,7 +6,7 @@
 			<Base>True</Base>
 			<Config Condition="'$(Config)'==''">Debug</Config>
 			<Platform Condition="'$(Platform)'==''">Win32</Platform>
-			<TargetedPlatforms>1</TargetedPlatforms>
+			<TargetedPlatforms>3</TargetedPlatforms>
 			<AppType>Console</AppType>
 			<MainSource>DelphiLuaUnitTests.dpr</MainSource>
 		</PropertyGroup>
@@ -28,6 +28,12 @@
 			<CfgParent>Base</CfgParent>
 			<Base>true</Base>
 		</PropertyGroup>
+		<PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Cfg_1)'=='true') or '$(Cfg_1_Win64)'!=''">
+			<Cfg_1_Win64>true</Cfg_1_Win64>
+			<CfgParent>Cfg_1</CfgParent>
+			<Cfg_1>true</Cfg_1>
+			<Base>true</Base>
+		</PropertyGroup>
 		<PropertyGroup Condition="('$(Platform)'=='Win32' and '$(Cfg_1)'=='true') or '$(Cfg_1_Win32)'!=''">
 			<Cfg_1_Win32>true</Cfg_1_Win32>
 			<CfgParent>Cfg_1</CfgParent>
@@ -37,6 +43,12 @@
 		<PropertyGroup Condition="'$(Config)'=='Release' or '$(Cfg_2)'!=''">
 			<Cfg_2>true</Cfg_2>
 			<CfgParent>Base</CfgParent>
+			<Base>true</Base>
+		</PropertyGroup>
+		<PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Cfg_2)'=='true') or '$(Cfg_2_Win64)'!=''">
+			<Cfg_2_Win64>true</Cfg_2_Win64>
+			<CfgParent>Cfg_2</CfgParent>
+			<Cfg_2>true</Cfg_2>
 			<Base>true</Base>
 		</PropertyGroup>
 		<PropertyGroup Condition="('$(Platform)'=='Win32' and '$(Cfg_2)'=='true') or '$(Cfg_2_Win32)'!=''">
@@ -55,9 +67,17 @@
 			<DCC_ExeOutput>.\bin</DCC_ExeOutput>
 		</PropertyGroup>
 		<PropertyGroup Condition="'$(Base_Win64)'!=''">
+			<DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;$(DCC_Namespace)</DCC_Namespace>
+			<DCC_ExeOutput>.\bin\win64</DCC_ExeOutput>
+			<VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+			<DCC_DcuOutput>.\lib\win64</DCC_DcuOutput>
+			<VerInfo_Locale>1033</VerInfo_Locale>
+			<Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
 			<DCC_UsePackage>dxdborRS16;cxLibraryRS16;dxLayoutControlRS16;dxPScxPivotGridLnkRS16;dxCoreRS16;cxExportRS16;dxBarRS16;cxSpreadSheetRS16;cxTreeListdxBarPopupMenuRS16;TeeDB;dxDBXServerModeRS16;dxPsPrVwAdvRS16;dxPSCoreRS16;dxPScxTLLnkRS16;dxPScxGridLnkRS16;cxPageControlRS16;dxRibbonRS16;DBXSybaseASEDriver;vclimg;cxTreeListRS16;dxComnRS16;vcldb;vcldsnap;dxBarExtDBItemsRS16;DBXDb2Driver;vcl;DBXMSSQLDriver;cxDataRS16;cxBarEditItemRS16;dxDockingRS16;cxPageControldxBarPopupMenuRS16;cxSchedulerGridRS16;dxPSLnksRS16;dxBarExtItemsRS16;dxtrmdRS16;webdsnap;dxPSdxLCLnkRS16;dxorgcRS16;dxWizardControlRS16;dxPScxExtCommonRS16;dxNavBarRS16;dxPSdxDBOCLnkRS16;cxSchedulerTreeBrowserRS16;Tee;DBXOdbcDriver;dxdbtrRS16;dxPScxSSLnkRS16;cxPivotGridChartRS16;dxPScxCommonRS16;dxmdsRS16;dxPSPrVwRibbonRS16;cxGridRS16;cxEditorsRS16;cxPivotGridRS16;dxPSdxDBTVLnkRS16;dxPScxSchedulerLnkRS16;TeeUI;dxServerModeRS16;bindcompvcl;vclactnband;vclie;cxSchedulerRS16;vcltouch;websnap;VclSmp;dxTabbedMDIRS16;dxPSdxOCLnkRS16;dsnapcon;dxPSdxFCLnkRS16;dxThemeRS16;dxPScxPCProdRS16;vclx;dxFlowChartRS16;dxGDIPlusRS16;dxBarDBNavRS16;$(DCC_UsePackage)</DCC_UsePackage>
 		</PropertyGroup>
 		<PropertyGroup Condition="'$(Base_Win32)'!=''">
+			<DCC_ExeOutput>.\bin\win32</DCC_ExeOutput>
+			<DCC_DcuOutput>.\lib\win32</DCC_DcuOutput>
 			<DCC_UsePackage>dxdborRS16;cxLibraryRS16;dxLayoutControlRS16;dxPScxPivotGridLnkRS16;dxCoreRS16;cxExportRS16;dxBarRS16;cxSpreadSheetRS16;cxTreeListdxBarPopupMenuRS16;TeeDB;dxDBXServerModeRS16;dxPsPrVwAdvRS16;vclib;dxPSCoreRS16;dxPScxTLLnkRS16;dxPScxGridLnkRS16;inetdbbde;cxPageControlRS16;dxRibbonRS16;DBXSybaseASEDriver;vclimg;cxTreeListRS16;fmi;dxComnRS16;vcldb;vcldsnap;dxBarExtDBItemsRS16;X2CLGL;DBXDb2Driver;vcl;CloudService;DBXMSSQLDriver;CodeSiteExpressPkg;FmxTeeUI;cxDataRS16;cxBarEditItemRS16;dxDockingRS16;cxPageControldxBarPopupMenuRS16;cxSchedulerGridRS16;dxPSLnksRS16;dxBarExtItemsRS16;dxtrmdRS16;webdsnap;X2CLMB;OmniThreadLibraryRuntimeXE2;adortl;dxPSdxLCLnkRS16;dxorgcRS16;dxWizardControlRS16;dxPScxExtCommonRS16;vcldbx;dxNavBarRS16;dxPSdxDBOCLnkRS16;cxSchedulerTreeBrowserRS16;Tee;DBXOdbcDriver;dxdbtrRS16;svnui;dxPScxSSLnkRS16;cxPivotGridChartRS16;dxPScxCommonRS16;dxmdsRS16;dxPSPrVwRibbonRS16;ibxpress;cxGridRS16;cxEditorsRS16;cxPivotGridRS16;dxPSdxDBTVLnkRS16;FMXTee;dxPScxSchedulerLnkRS16;TeeUI;dxServerModeRS16;bindcompvcl;vclactnband;vclie;cxSchedulerRS16;vcltouch;websnap;VclSmp;dxTabbedMDIRS16;DataSnapConnectors;dxPSdxOCLnkRS16;dsnapcon;dxPSdxFCLnkRS16;dxThemeRS16;dxPScxPCProdRS16;vclx;svn;dxFlowChartRS16;bdertl;VirtualTreesR;dxGDIPlusRS16;dxBarDBNavRS16;$(DCC_UsePackage)</DCC_UsePackage>
 			<DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;Bde;$(DCC_Namespace)</DCC_Namespace>
 			<VerInfo_Locale>1033</VerInfo_Locale>
@@ -69,6 +89,13 @@
 			<DCC_DebugInfoInExe>true</DCC_DebugInfoInExe>
 			<DCC_RemoteDebug>true</DCC_RemoteDebug>
 		</PropertyGroup>
+		<PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
+			<DCC_ExeOutput>.\bin\win64</DCC_ExeOutput>
+			<VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+			<Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
+			<VerInfo_Locale>1033</VerInfo_Locale>
+			<DCC_DcuOutput>.\lib\win64</DCC_DcuOutput>
+		</PropertyGroup>
 		<PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
 			<VerInfo_Locale>1033</VerInfo_Locale>
 			<DCC_RemoteDebug>false</DCC_RemoteDebug>
@@ -78,6 +105,11 @@
 			<DCC_Define>RELEASE;$(DCC_Define)</DCC_Define>
 			<DCC_SymbolReferenceInfo>0</DCC_SymbolReferenceInfo>
 			<DCC_DebugInformation>false</DCC_DebugInformation>
+		</PropertyGroup>
+		<PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
+			<VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+			<Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
+			<VerInfo_Locale>1033</VerInfo_Locale>
 		</PropertyGroup>
 		<PropertyGroup Condition="'$(Cfg_2_Win32)'!=''">
 			<VerInfo_Locale>1033</VerInfo_Locale>
@@ -138,12 +170,13 @@
 						<Source Name="MainSource">DelphiLuaUnitTests.dpr</Source>
 					</Source>
 					<Excluded_Packages>
-						<Excluded_Packages Name="F:\Components\bin\DXE2\win32\JvBDEDesign160.bpl">JVCL BDE Components</Excluded_Packages>
+						<Excluded_Packages Name="$(BDSBIN)\dcloffice2k160.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
+						<Excluded_Packages Name="$(BDSBIN)\dclofficexp160.bpl">Microsoft Office XP Sample Automation Server Wrapper Components</Excluded_Packages>
 					</Excluded_Packages>
 				</Delphi.Personality>
 				<Deployment/>
 				<Platforms>
-					<Platform value="Win64">False</Platform>
+					<Platform value="Win64">True</Platform>
 					<Platform value="OSX32">False</Platform>
 					<Platform value="Win32">True</Platform>
 				</Platforms>

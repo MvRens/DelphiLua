@@ -282,7 +282,7 @@ type
     constructor Create(const AStream: TStream; AOwnership: TStreamOwnership = soReference); overload;
     destructor Destroy; override;
 
-    function GetNextChunk(out ASize: Cardinal): PAnsiChar; virtual;
+    function GetNextChunk(out ASize: NativeUint): PAnsiChar; virtual;
   end;
 
 
@@ -300,7 +300,7 @@ type
     function GetHasState: Boolean; virtual;
     function GetState: lua_State; virtual;
 
-    function DoAlloc(APointer: Pointer; AOldSize, ANewSize: Cardinal): Pointer; virtual;
+    function DoAlloc(APointer: Pointer; AOldSize, ANewSize: NativeUint): Pointer; virtual;
 
     procedure DoNewState; virtual;
     procedure DoClose; virtual;
@@ -826,7 +826,7 @@ end;
 
 class function TLuaHelpers.LuaToString(AState: lua_State; AIndex: Integer): string;
 var
-  len: Cardinal;
+  len: NativeUint;
   value: PAnsiChar;
   stringValue: RawByteString;
 
@@ -1050,7 +1050,10 @@ begin
           Result := BobJenkinsHash(s[1], Length(s) * SizeOf(s[1]), 0);
       end;
     VariableTable:
-      Result := Integer(Value.AsTable);
+      begin
+        p := Pointer(Value.AsTable);
+        Result := BobJenkinsHash(p, SizeOf(p), 0);
+      end;
   end;
 end;
 
@@ -1203,7 +1206,7 @@ begin
 end;
 
 
-function TLuaScript.GetNextChunk(out ASize: Cardinal): PAnsiChar;
+function TLuaScript.GetNextChunk(out ASize: NativeUint): PAnsiChar;
 const
   BufferSize = 4096;
 
@@ -1594,7 +1597,7 @@ begin
 end;
 
 
-function TLua.DoAlloc(APointer: Pointer; AOldSize, ANewSize: Cardinal): Pointer;
+function TLua.DoAlloc(APointer: Pointer; AOldSize, ANewSize: NativeUint): Pointer;
 begin
   Result := DefaultLuaAlloc(nil, APointer, AOldSize, ANewSize);
 end;
@@ -1618,7 +1621,12 @@ end;
 
 
 procedure TLua.DoRegistration(ARegistration: TCustomLuaRegistration);
+var
+  this: TLua;
+
 begin
+  this := Self;
+
   ARegistration.Apply(State,
     procedure(AFunction: TLuaCFunction)
     var
@@ -1628,7 +1636,7 @@ begin
       cookie := GetRegisteredFunctionCookie;
       RegisteredFunctions.Add(cookie, AFunction);
 
-      lua_pushlightuserdata(State, Self);
+      lua_pushlightuserdata(State, this);
       lua_pushinteger(State, Cookie);
       lua_pushcclosure(State, @LuaWrapperFunction, 2);
     end);

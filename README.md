@@ -4,11 +4,11 @@
 This project consists of two parts: a straight-up conversion of the [LuaBinaries](http://luabinaries.sourceforge.net/) 5.2 C headers to Delphi, and the TLua class to make integrating Lua with Delphi projects easier.
 
 ##### A note on compatibility
-It's been tested and developed on Delphi XE2 32-bits. Minimum version for the wrapper is probably 2010, due to anonymous functions and TRttiContext being used. I also know for sure that the code isn't 64-bits compatible yet.
+It's been tested and developed on Delphi XE2 32-bits and 64-bits. Minimum version for the wrapper is probably 2010, due to anonymous functions and TRttiContext being used.
 
 
 ### Getting started
-Download lua-5.2.4_Win32_bin.zip from [LuaBinaries](http://luabinaries.sourceforge.net/) and extract lua52.dll.
+Download lua-5.2.4_Win32_bin.zip or lua-5.2.4_Win64_bin.zip from [LuaBinaries](http://luabinaries.sourceforge.net/) and extract lua52.dll.
 
 If you're just interested in the API, the [Lua manual](http://www.lua.org/manual/5.2/manual.html#4) is the best place to start.
 
