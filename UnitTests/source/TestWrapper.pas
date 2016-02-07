@@ -18,6 +18,8 @@ type
     procedure SetUp; override;
     procedure TearDown; override;
 
+    procedure Print(AContext: ILuaContext);
+
     property Lua: TLua read FLua;
     property Printed: TStringBuilder read FPrinted;
   published
@@ -48,6 +50,9 @@ type
     procedure ByteCode;
     procedure Capture;
     procedure DenyRequire;
+
+    procedure RegisterObject;
+    procedure RegisterObjectTable;
   end;
 
 
@@ -60,6 +65,17 @@ type
   TProtectedLua = class(TLua);
 
 
+  TTestObject = class(TPersistent)
+  private
+    FOutput: TStringBuilder;
+  public
+    constructor Create(AOutput: TStringBuilder);
+  published
+    procedure Method1(AContext: ILuaContext);
+    procedure Method2(AContext: ILuaContext);
+  end;
+
+
 { TTestWrapper }
 procedure TTestWrapper.SetUp;
 begin
@@ -69,11 +85,7 @@ begin
 
   FLua := TLua.Create;
   FLua.AutoOpenLibraries := [StringLib];
-  FLua.RegisterFunction('print',
-    procedure(AContext: ILuaContext)
-    begin
-      FPrinted.Append(AContext.Parameters.ToString);
-    end);
+  FLua.RegisterFunction('print', Print);
 end;
 
 
@@ -83,6 +95,12 @@ begin
   FreeAndNil(FLua);
 
   inherited;
+end;
+
+
+procedure TTestWrapper.Print(AContext: ILuaContext);
+begin
+  FPrinted.Append(AContext.Parameters.ToString);
 end;
 
 
@@ -423,6 +441,61 @@ begin
   end;
 end;
 
+
+procedure TTestWrapper.RegisterObject;
+var
+  testObject: TTestObject;
+
+begin
+  testObject := TTestObject.Create(FPrinted);
+  try
+    Lua.RegisterFunctions(testObject);
+    Lua.LoadFromString('Method1("Hello")'#13#10 +
+                       'Method2("world!")');
+
+    CheckEquals('Method1:HelloMethod2:world!', Printed.ToString);
+  finally
+    FreeAndNil(testObject);
+  end;
+end;
+
+
+procedure TTestWrapper.RegisterObjectTable;
+var
+  testObject: TTestObject;
+
+begin
+  testObject := TTestObject.Create(FPrinted);
+  try
+    Lua.RegisterFunctions(testObject, 'Test');
+    Lua.LoadFromString('Test.Method1("Hello")'#13#10 +
+                       'Test.Method2("world!")');
+
+    CheckEquals('Method1:HelloMethod2:world!', Printed.ToString);
+  finally
+    FreeAndNil(testObject);
+  end;
+end;
+
+
+{ TTestObject }
+constructor TTestObject.Create(AOutput: TStringBuilder);
+begin
+  inherited Create;
+
+  FOutput := AOutput;
+end;
+
+
+procedure TTestObject.Method1(AContext: ILuaContext);
+begin
+  FOutput.Append('Method1:' + AContext.Parameters[0].AsString);
+end;
+
+procedure TTestObject.Method2(AContext: ILuaContext);
+begin
+  FOutput.Append('Method2:' + AContext.Parameters[0].AsString);
+end;
 
 initialization
   RegisterTest(TTestWrapper.Suite);

@@ -22,13 +22,14 @@
      3. This notice may not be removed or altered from any source
      distribution.
 }
-unit Lua.Wrapper;
+unit Lua;
 
 interface
 uses
   System.Classes,
   System.Generics.Collections,
   System.Generics.Defaults,
+  System.Rtti,
   System.SysUtils,
 
   Lua.API;
@@ -223,14 +224,52 @@ type
 
 
   TLuaCFunction = reference to procedure(Context: ILuaContext);
+  TLuaCMethod = procedure(Context: ILuaContext) of object;
+  TLuaPushFunction = reference to procedure(AFunction: TLuaCFunction);
 
 
-  TLuaRegisteredFunction = record
-    Name: string;
-    Callback: TLuaCFunction;
+  TCustomLuaRegistration = class(TObject)
+  private
+    FName: string;
+  protected
+    property Name: string read FName write FName;
+  public
+    constructor Create(const AName: string);
+
+    procedure Apply(AState: lua_State; APushFunction: TLuaPushFunction); virtual; abstract;
   end;
 
-  TLuaRegisteredFunctionDictionary = TDictionary<Integer, TLuaRegisteredFunction>;
+
+  TLuaFunctionRegistration = class(TCustomLuaRegistration)
+  private
+    FCallback: TLuaCFunction;
+  protected
+    property Callback: TLuaCFunction read FCallback;
+  public
+    constructor Create(const AName: string; ACallback: TLuaCFunction);
+
+    procedure Apply(AState: lua_State; APushFunction: TLuaPushFunction); override;
+  end;
+
+
+  TLuaFunctionTable = TDictionary<string, TLuaCFunction>;
+
+  TLuaTableRegistration = class(TCustomLuaRegistration)
+  private
+    FFunctionTable: TLuaFunctionTable;
+  protected
+    property FunctionTable: TLuaFunctionTable read FFunctionTable;
+  public
+    constructor Create(const AName: string);
+    destructor Destroy; override;
+
+    procedure RegisterFunction(const AName: string; AFunction: TLuaCFunction); virtual;
+    procedure Apply(AState: lua_State; APushFunction: TLuaPushFunction); override;
+  end;
+
+
+  TLuaRegistrationList = TObjectList<TCustomLuaRegistration>;
+  TLuaRegisteredFunctionDictionary = TDictionary<Integer, TLuaCFunction>;
 
 
   TLuaScript = class(TObject)
@@ -251,20 +290,21 @@ type
   private
     FState: lua_State;
     FLoaded: Boolean;
+    FRegistrations: TLuaRegistrationList;
     FRegisteredFunctions: TLuaRegisteredFunctionDictionary;
     FRegisteredFunctionCookie: Integer;
     FAutoOpenLibraries: TLuaLibraries;
     FHasRun: Boolean;
-
-    function GetHasState: Boolean;
-    function GetState: lua_State;
-    function GetRegisteredFunctions: TLuaRegisteredFunctionDictionary;
+    FRttiContext: TRttiContext;
   protected
+    function GetHasState: Boolean; virtual;
+    function GetState: lua_State; virtual;
+
     function DoAlloc(APointer: Pointer; AOldSize, ANewSize: Cardinal): Pointer; virtual;
 
     procedure DoNewState; virtual;
     procedure DoClose; virtual;
-    procedure DoRegisterFunction(ACookie: Integer); virtual;
+    procedure DoRegistration(ARegistration: TCustomLuaRegistration); virtual;
 
     procedure SetAutoOpenLibraries(const Value: TLuaLibraries); virtual;
   protected
@@ -272,12 +312,14 @@ type
     procedure CheckIsFunction; virtual;
     procedure AfterLoad; virtual;
 
+    procedure AddRegistration(ARegistration: TCustomLuaRegistration); virtual;
     function GetRegisteredFunctionCookie: Integer; virtual;
     function RunRegisteredFunction(ACookie: Integer): Integer; virtual;
 
     property Loaded: Boolean read FLoaded write FLoaded;
     property HasRun: Boolean read FHasRun write FHasRun;
-    property RegisteredFunctions: TLuaRegisteredFunctionDictionary read GetRegisteredFunctions;
+    property Registrations: TLuaRegistrationList read FRegistrations;
+    property RegisteredFunctions: TLuaRegisteredFunctionDictionary read FRegisteredFunctions;
   public
     constructor Create;
     destructor Destroy; override;
@@ -290,6 +332,14 @@ type
     function GetGlobalVariable(const AName: string): ILuaVariable; virtual;
     procedure SetGlobalVariable(const AName: string; AVariable: TLuaImplicitVariable); virtual;
     procedure RegisterFunction(const AName: string; AFunction: TLuaCFunction); virtual;
+//    procedure UnregisterFunction();
+
+    { Registers all published methods of the specified object. If ATableName
+      is provided, the methods will be bundled in a global table and accessible as
+      ATableName.Method(). If not provided, the methods are accessible directly
+      as global functions. }
+    procedure RegisterFunctions(AObject: TObject; const ATableName: string = ''; AIncludePublicVisibility: Boolean = False); virtual;
+//    procedure UnregisterFunctions();
 
     procedure OpenLibraries(ALibraries: TLuaLibraries); virtual;
 
@@ -339,7 +389,8 @@ type
 implementation
 uses
   System.Math,
-  System.SyncObjs;
+  System.SyncObjs,
+  System.TypInfo;
 
 
 type
@@ -1039,6 +1090,91 @@ begin
 end;
 
 
+{ TCustomLuaRegistration }
+constructor TCustomLuaRegistration.Create(const AName: string);
+begin
+  inherited Create;
+
+  FName := AName;
+end;
+
+
+{ TLuaFunctionRegistration }
+procedure TLuaFunctionRegistration.Apply(AState: lua_State; APushFunction: TLuaPushFunction);
+var
+  functionName: PAnsiChar;
+
+begin
+  functionName := TLuaHelpers.AllocLuaString(Name);
+  try
+    APushFunction(Callback);
+    lua_setglobal(AState, functionName);
+  finally
+    TLuaHelpers.FreeLuaString(functionName);
+  end;
+end;
+
+constructor TLuaFunctionRegistration.Create(const AName: string; ACallback: TLuaCFunction);
+begin
+  inherited Create(AName);
+
+  FCallback := ACallback;
+end;
+
+
+{ TLuaTableRegistration }
+constructor TLuaTableRegistration.Create(const AName: string);
+begin
+  inherited Create(AName);
+
+  FFunctionTable := TLuaFunctionTable.Create;
+end;
+
+
+destructor TLuaTableRegistration.Destroy;
+begin
+  FreeAndNil(FFunctionTable);
+
+  inherited Destroy;
+end;
+
+
+procedure TLuaTableRegistration.RegisterFunction(const AName: string; AFunction: TLuaCFunction);
+begin
+  FunctionTable.AddOrSetValue(AName, AFunction);
+end;
+
+
+procedure TLuaTableRegistration.Apply(AState: lua_State; APushFunction: TLuaPushFunction);
+var
+  pair: TPair<string, TLuaCFunction>;
+  functionName: PAnsiChar;
+  tableName: PAnsiChar;
+
+begin
+  lua_newtable(AState);
+
+  for pair in FunctionTable do
+  begin
+    functionName := TLuaHelpers.AllocLuaString(pair.Key);
+    try
+      lua_pushstring(AState, functionName);
+      APushFunction(pair.Value);
+      lua_settable(AState, -3);
+    finally
+      TLuaHelpers.FreeLuaString(functionName);
+    end;
+  end;
+
+  tableName := TLuaHelpers.AllocLuaString(Name);
+  try
+    lua_setglobal(AState, tableName);
+  finally
+    TLuaHelpers.FreeLuaString(tableName);
+  end;
+end;
+
+
 { TLuaScript }
 constructor TLuaScript.Create(const AData: string);
 begin
@@ -1139,12 +1275,15 @@ begin
   inherited Create;
 
   FAutoOpenLibraries := [TLuaLibrary.All];
+  FRegistrations := TLuaRegistrationList.Create(True);
+  FRegisteredFunctions := TLuaRegisteredFunctionDictionary.Create;
 end;
 
 
 destructor TLua.Destroy;
 begin
   FreeAndNil(FRegisteredFunctions);
+  FreeAndNil(FRegistrations);
 
   if HasState then
     DoClose;
@@ -1353,15 +1492,15 @@ end;
 
 procedure TLua.AfterLoad;
 var
-  cookie: Integer;
+  registration: TCustomLuaRegistration;
 
 begin
   Loaded := True;
   HasRun := False;
 
   { Register functions in the current environment }
-  for cookie in RegisteredFunctions.Keys do
-    DoRegisterFunction(cookie);
+  for registration in Registrations do
+    DoRegistration(registration);
 end;
 
 
@@ -1398,21 +1537,60 @@ end;
 
 
 procedure TLua.RegisterFunction(const AName: string; AFunction: TLuaCFunction);
-var
-  registeredFunction: TLuaRegisteredFunction;
-  cookie: Integer;
-
 begin
   { Since anonymous methods are basically interfaces, we need to keep a reference around }
-  registeredFunction.Name := AName;
-  registeredFunction.Callback := AFunction;
+  AddRegistration(TLuaFunctionRegistration.Create(AName, AFunction));
+end;
 
-  cookie := GetRegisteredFunctionCookie;
-  RegisteredFunctions.Add(cookie, registeredFunction);
 
-  { Only register functions after Load, otherwise they'll not be available in the environment }
-  if Loaded then
-    DoRegisterFunction(cookie);
+procedure TLua.RegisterFunctions(AObject: TObject; const ATableName: string; AIncludePublicVisibility: Boolean);
+
+  { This wrapper is needed because Delphi's anonymous functions capture
+    variables, not values. We need a stable 'callback' here. }
+  function CaptureCallback(AMethod: TMethod): TLuaCFunction; inline;
+  begin
+    Result := TLuaCMethod(AMethod);
+  end;
+
+var
+  rttiType: TRttiType;
+  rttiMethod: TRttiMethod;
+  rttiParameters: TArray<System.Rtti.TRttiParameter>;
+  callback: TMethod;
+  tableRegistration: TLuaTableRegistration;
+
+begin
+  tableRegistration := nil;
+  if Length(ATableName) > 0 then
+    tableRegistration := TLuaTableRegistration.Create(ATableName);
+
+  rttiType := FRttiContext.GetType(AObject.ClassType);
+  for rttiMethod in rttiType.GetMethods do
+  begin
+    if (rttiMethod.Visibility = mvPublished) or
+       (AIncludePublicVisibility and (rttiMethod.Visibility = mvPublic)) then
+    begin
+      rttiParameters := rttiMethod.GetParameters;
+
+      { Check if one parameter of type ILuaContext is present }
+      if (Length(rttiParameters) = 1) and
+         (Assigned(rttiParameters[0].ParamType)) and
+         (rttiParameters[0].ParamType.TypeKind = tkInterface) and
+         (TRttiInterfaceType(rttiParameters[0].ParamType).GUID = ILuaContext) then
+      begin
+        callback.Code := rttiMethod.CodeAddress;
+        callback.Data := AObject;
+
+        if Assigned(tableRegistration) then
+          tableRegistration.RegisterFunction(rttiMethod.Name, CaptureCallback(callback))
+        else
+          AddRegistration(TLuaFunctionRegistration.Create(rttiMethod.Name, CaptureCallback(callback)));
+      end;
+    end;
+  end;
+
+  if Assigned(tableRegistration) then
+    AddRegistration(tableRegistration);
 end;
 
 
@@ -1439,21 +1617,30 @@ begin
 end;
 
 
-procedure TLua.DoRegisterFunction(ACookie: Integer);
-var
-  name: PAnsiChar;
-
+procedure TLua.DoRegistration(ARegistration: TCustomLuaRegistration);
 begin
-  name := TLuaHelpers.AllocLuaString(RegisteredFunctions[ACookie].Name);
-  try
-    lua_pushlightuserdata(State, Self);
-    lua_pushinteger(State, ACookie);
+  ARegistration.Apply(State,
+    procedure(AFunction: TLuaCFunction)
+    var
+      cookie: Integer;
 
-    lua_pushcclosure(State, @LuaWrapperFunction, 2);
-    lua_setglobal(State, name);
-  finally
-    TLuaHelpers.FreeLuaString(name);
-  end;
+    begin
+      cookie := GetRegisteredFunctionCookie;
+      RegisteredFunctions.Add(cookie, AFunction);
+
+      lua_pushlightuserdata(State, Self);
+      lua_pushinteger(State, Cookie);
+      lua_pushcclosure(State, @LuaWrapperFunction, 2);
+    end);
+end;
+
+procedure TLua.AddRegistration(ARegistration: TCustomLuaRegistration);
+begin
+  Registrations.Add(ARegistration);
+
+  { Only register functions after Load, otherwise they'll not be available in the environment }
+  if Loaded then
+    DoRegistration(ARegistration);
 end;
 
 
@@ -1475,7 +1662,7 @@ begin
   begin
     context := TLuaContext.Create(State);
 
-    RegisteredFunctions[ACookie].Callback(context);
+    RegisteredFunctions[ACookie](context);
     Result := context.Result.Count;
   end;
 end;
@@ -1491,15 +1678,6 @@ function TLua.GetState: lua_State;
 begin
   CheckState;
   Result := FState;
-end;
-
-
-function TLua.GetRegisteredFunctions: TLuaRegisteredFunctionDictionary;
-begin
-  if not Assigned(FRegisteredFunctions) then
-    FRegisteredFunctions := TLuaRegisteredFunctionDictionary.Create;
-
-  Result := FRegisteredFunctions;
 end;
 
 
@@ -2263,6 +2441,5 @@ begin
 
   Result := TLuaHelpers.CallFunction(State, AParameters);
 end;
-
 
 end.
