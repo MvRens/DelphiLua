@@ -21,7 +21,7 @@ uses
   Classes,
   SysUtils,
 
-  Lua;
+  Lua.API;
 
 
 { TTestAPI }
