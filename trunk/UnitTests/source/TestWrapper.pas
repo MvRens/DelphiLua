@@ -6,7 +6,7 @@ uses
 
   TestFramework,
 
-  Lua.Wrapper;
+  Lua;
 
 
 type
