@@ -8,6 +8,8 @@ It's been tested and developed on Delphi XE2 32-bits. Minimum version for the wr
 
 
 ### Getting started
+Download lua-5.2.4_Win32_bin.zip from [LuaBinaries](http://luabinaries.sourceforge.net/) and extract lua52.dll.
+
 If you're just interested in the API, the [Lua manual](http://www.lua.org/manual/5.2/manual.html#4) is the best place to start.
 
 For the wrapper, take a look at the unit tests in TestWrapper.pas. Be sure to copy Lua52.dll into the output path if you're gonna run the unit tests or your own project.
