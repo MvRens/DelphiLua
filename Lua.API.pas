@@ -194,8 +194,8 @@ var
   lua_pushunsigned: procedure(L: lua_State; n: lua_Unsigned); cdecl;
   lua_pushlstring: function (L: lua_State; s: PAnsiChar; l_: size_t): PAnsiChar; cdecl;
   lua_pushstring: function (L: lua_State; s: PAnsiChar): PAnsiChar; cdecl;
-  lua_pushvfstring: function (L: lua_State; fmt: PAnsiChar; argp: array of const): PAnsiChar; cdecl;
-  lua_pushfstring: function (L: lua_State; fmt: PAnsiChar): PAnsiChar; cdecl;
+  lua_pushvfstring: function (L: lua_State; fmt: PAnsiChar; argp: Pointer): PAnsiChar; cdecl;
+  lua_pushfstring: function (L: lua_State; fmt: PAnsiChar; argp: Pointer): PAnsiChar; cdecl;
   lua_pushcclosure: procedure(L: lua_State; fn: lua_CFunction; n: Integer); cdecl;
   lua_pushboolean: procedure(L: lua_State; b: Integer); cdecl;
   lua_pushlightuserdata: procedure(L: lua_State; p: Pointer); cdecl;
@@ -407,6 +407,10 @@ type
 
 var
   luaL_setfuncs: procedure(L: lua_State; luaL_Reg: PluaL_Reg; nup: Integer); cdecl;
+
+  procedure luaL_where(L: lua_State; level: Integer);
+  function luaL_error(L: lua_State; fmt: PAnsiChar; argp: Pointer): Integer;
+
 
 
 const
@@ -725,6 +729,33 @@ end;
 function lua_tostring(L: lua_State; idx: Integer): PAnsiChar;
 begin
   Result := lua_tolstring(L, idx, nil);
+end;
+
+procedure luaL_where(L: lua_State; level: Integer);
+var
+  ar: lua_Debug;
+  msg: AnsiString;
+
+begin
+  if (lua_getstack(L, level, ar) <> 0) then // check function at level
+  begin
+    lua_getinfo(L, 'Sl', ar);  // get info about it
+    if (ar.currentline > 0) then // is there info?
+    begin
+      msg := Format('%s:%d: ', [ar.short_src, ar.currentline]);
+      lua_pushlstring(L, PAnsiChar(msg), Length(msg));
+      exit
+    end;
+  end;
+  lua_pushliteral(L, '');  // else, no information available...
+end;
+
+function luaL_error(L: lua_State; fmt: PAnsiChar; argp: Pointer): Integer;
+begin
+  luaL_where(L, 1);
+  lua_pushvfstring(L, fmt, argp);
+  lua_concat(L, 2);
+  Result := lua_error(L);
 end;
 
 

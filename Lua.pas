@@ -40,6 +40,7 @@ type
   ELuaUnsupportedParameterException = class(ELuaException);
   ELuaUnsupportedVariableException = class(ELuaException);
   ELuaNoFunctionException = class(ELuaException);
+  ELuaNativeCodeException = class(ELuaException);
 
   TLuaLibrary = (Base, Coroutine, Table, IO, OS, StringLib, Bit32, Math, Debug, Package, All);
   TLuaLibraries = set of TLuaLibrary;
@@ -127,6 +128,7 @@ type
     ['{57FD52A1-7D53-485B-A630-29841C498387}']
     function GetEnumerator: ILuaTableEnumerator;
 
+    function HasValue(AKey: TLuaImplicitVariable): Boolean;
     function GetValue(AKey: TLuaImplicitVariable): ILuaVariable;
     procedure SetValue(AKey: TLuaImplicitVariable; AValue: TLuaImplicitVariable);
   end;
@@ -165,6 +167,7 @@ type
     { ILuaTable }
     function GetEnumerator: ILuaTableEnumerator;
 
+    function HasValue(AKey: TLuaImplicitVariable): Boolean;
     function GetValue(AKey: TLuaImplicitVariable): ILuaVariable;
     procedure SetValue(AKey: TLuaImplicitVariable; AValue: TLuaImplicitVariable);
   end;
@@ -666,6 +669,7 @@ begin
     LuaBoolean:       Result := VariableBoolean;
     LuaString:        Result := VariableString;
     LuaTable:         Result := VariableTable;
+    LuaFunction:      Result := VariableFunction;
     LuaUserData:      Result := VariableUserData;
     LuaLightUserData: Result := VariableUserData;
   else
@@ -1081,6 +1085,11 @@ begin
 end;
 
 
+function TLuaTable.HasValue(AKey: TLuaImplicitVariable): Boolean;
+begin
+  Result := FTable.ContainsKey(AKey);
+end;
+
 function TLuaTable.GetValue(AKey: TLuaImplicitVariable): ILuaVariable;
 begin
   Result := FTable[AKey];
@@ -1308,8 +1317,16 @@ end;
 
 
 procedure TLua.LoadFromFile(const AFileName: string; AAutoRun: Boolean; const AChunkName: string);
+var
+  chunkName: string;
+
 begin
-  LoadFromScript(TLuaScript.Create(TFileStream.Create(AFileName, fmOpenRead or fmShareDenyNone), soOwned), soOwned, AAutoRun, AChunkName);
+  if Length(AChunkName) > 0 then
+    chunkName := AChunkName
+  else
+    chunkName := ExtractFileName(AFileName);
+
+  LoadFromScript(TLuaScript.Create(TFileStream.Create(AFileName, fmOpenRead or fmShareDenyNone), soOwned), soOwned, AAutoRun, chunkName);
 end;
 
 
@@ -1670,8 +1687,13 @@ begin
   begin
     context := TLuaContext.Create(State);
 
-    RegisteredFunctions[ACookie](context);
-    Result := context.Result.Count;
+    try
+      RegisteredFunctions[ACookie](context);
+      Result := context.Result.Count;
+    except
+      on E:Exception do
+        Result := luaL_error(State, PAnsiChar(AnsiString(E.Message)), nil);
+    end;
   end;
 end;
 

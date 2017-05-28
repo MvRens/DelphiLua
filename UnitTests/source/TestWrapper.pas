@@ -33,6 +33,7 @@ type
     procedure Input;
     procedure Output;
     procedure DelphiFunction;
+    procedure DelphiFunctionException;
     procedure LuaFunction;
     procedure LuaFunctionDefaultResult;
     procedure LuaFunctionString;
@@ -194,6 +195,27 @@ begin
 
   Lua.LoadFromString('print(myuppercase("Hello world!"))');
   CheckEquals('HELLO WORLD!', Printed.ToString);
+end;
+
+
+procedure TTestWrapper.DelphiFunctionException;
+begin
+  Lua.RegisterFunction('crazyharry',
+    procedure(AContext: ILuaContext)
+    begin
+      raise Exception.Create('Boom!');
+    end);
+
+  try
+    Lua.LoadFromString('print(crazyharry("Did somebody say dynamite?"))');
+    Fail('ELuaNativeCodeException expected');
+  except
+    on E:Exception do
+    begin
+      CheckIs(E, ELuaException);
+      CheckEquals('[string "?"]:1: Boom!', E.Message);
+    end;
+  end;
 end;
 
 
