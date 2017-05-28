@@ -737,7 +737,12 @@ begin
     VariableBoolean:  lua_pushboolean(AState, IfThen(AVariable.AsBoolean, 1, 0));
     VariableInteger:  lua_pushinteger(AState, AVariable.AsInteger);
     VariableNumber:   lua_pushnumber(AState, AVariable.AsNumber);
-    VariableUserData: lua_pushlightuserdata(AState, AVariable.AsUserData);
+    VariableUserData:
+      if AVariable.AsUserData = nil then
+        lua_pushnil(AState)
+      else
+        lua_pushlightuserdata(AState, AVariable.AsUserData);
+
     VariableString:   PushString(AState, AVariable.AsString);
     VariableTable:    PushTable(AState, AVariable.AsTable);
   else
@@ -2383,7 +2388,11 @@ end;
 
 procedure TLuaStackWriteParameters.Push(AUserData: Pointer);
 begin
-  lua_pushlightuserdata(State, AUserData);
+  if AUserData = nil then
+    lua_pushnil(State)
+  else
+    lua_pushlightuserdata(State, AUserData);
+
   Pushed;
 end;
 
