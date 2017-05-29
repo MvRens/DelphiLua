@@ -208,6 +208,58 @@ type
   end;
 
 
+  TCustomLuaParameters = class(TInterfacedObject, ILuaVariable, ILuaReadParameters)
+  protected
+    function GetDefaultVariable: ILuaVariable;
+  public
+    { ILuaVariable }
+    function GetVariableType: TLuaVariableType;
+    function GetDataType: TLuaDataType;
+
+    function GetAsBoolean: Boolean;
+    function GetAsInteger: Integer;
+    function GetAsNumber: Double;
+    function GetAsUserData: Pointer;
+    function GetAsString: string;
+    function GetAsTable: ILuaTable;
+    function GetAsFunction: ILuaFunction;
+
+    procedure SetAsBoolean(ABoolean: Boolean);
+    procedure SetAsInteger(AInteger: Integer);
+    procedure SetAsNumber(ANumber: Double);
+    procedure SetAsUserData(AUserData: Pointer);
+    procedure SetAsString(AString: string);
+    procedure SetAsTable(ATable: ILuaTable);
+
+    { ILuaReadParameters }
+    function GetCount: Integer; virtual; abstract;
+    function GetItem(Index: Integer): ILuaVariable; virtual; abstract;
+
+    function GetEnumerator: ILuaParametersEnumerator;
+    function ToString: string; override;
+  end;
+
+
+  TLuaParameters = class(TCustomLuaParameters, ILuaWriteParameters)
+  private
+    FParameters: TList<ILuaVariable>;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    function GetCount: Integer; override;
+    function GetItem(Index: Integer): ILuaVariable; override;
+
+    { ILuaWriteParameters }
+    procedure Push(ABoolean: Boolean); overload;
+    procedure Push(AInteger: Integer); overload;
+    procedure Push(ANumber: Double); overload;
+    procedure Push(AUserData: Pointer); overload;
+    procedure Push(const AString: string); overload;
+    procedure Push(ATable: ILuaTable); overload;
+  end;
+
+
   ILuaFunction = interface
     ['{1BE5E470-0318-410E-8D5B-94BFE04A3DBE}']
     function Call(): ILuaReadParameters; overload;
@@ -413,38 +465,6 @@ type
   end;
 
 
-  TCustomLuaParameters = class(TInterfacedObject, ILuaVariable, ILuaReadParameters)
-  protected
-    function GetDefaultVariable: ILuaVariable;
-  public
-    { ILuaVariable }
-    function GetVariableType: TLuaVariableType;
-    function GetDataType: TLuaDataType;
-
-    function GetAsBoolean: Boolean;
-    function GetAsInteger: Integer;
-    function GetAsNumber: Double;
-    function GetAsUserData: Pointer;
-    function GetAsString: string;
-    function GetAsTable: ILuaTable;
-    function GetAsFunction: ILuaFunction;
-
-    procedure SetAsBoolean(ABoolean: Boolean);
-    procedure SetAsInteger(AInteger: Integer);
-    procedure SetAsNumber(ANumber: Double);
-    procedure SetAsUserData(AUserData: Pointer);
-    procedure SetAsString(AString: string);
-    procedure SetAsTable(ATable: ILuaTable);
-
-    { ILuaReadParameters }
-    function GetCount: Integer; virtual; abstract;
-    function GetItem(Index: Integer): ILuaVariable; virtual; abstract;
-
-    function GetEnumerator: ILuaParametersEnumerator;
-    function ToString: string; override;
-  end;
-
-
   TLuaStackParameters = class(TCustomLuaParameters)
   private
     FState: lua_State;
@@ -568,26 +588,6 @@ type
   end;
 
 
-  TLuaReadWriteParameters = class(TCustomLuaParameters, ILuaWriteParameters)
-  private
-    FParameters: TList<ILuaVariable>;
-  public
-    constructor Create;
-    destructor Destroy; override;
-
-    function GetCount: Integer; override;
-    function GetItem(Index: Integer): ILuaVariable; override;
-
-    { ILuaWriteParameters }
-    procedure Push(ABoolean: Boolean); overload;
-    procedure Push(AInteger: Integer); overload;
-    procedure Push(ANumber: Double); overload;
-    procedure Push(AUserData: Pointer); overload;
-    procedure Push(const AString: string); overload;
-    procedure Push(ATable: ILuaTable); overload;
-  end;
-
-
   TLuaStackWriteParameters = class(TInterfacedObject, ILuaWriteParameters)
   private
     FState: lua_State;
@@ -682,11 +682,11 @@ class function TLuaHelpers.CreateParameters(AParameters: array of const): ILuaRe
 var
   parameterIndex: Integer;
   parameter: TVarRec;
-  resultParameters: TLuaReadWriteParameters;
+  resultParameters: TLuaParameters;
   table: ILuaTable;
 
 begin
-  resultParameters := TLuaReadWriteParameters.Create;
+  resultParameters := TLuaParameters.Create;
 
   for parameterIndex := Low(AParameters) to High(AParameters) do
   begin
@@ -2263,8 +2263,8 @@ begin
 end;
 
 
-{ TLuaReadWriteParameters }
-constructor TLuaReadWriteParameters.Create;
+{ TLuaParameters }
+constructor TLuaParameters.Create;
 begin
   inherited Create;
 
@@ -2272,7 +2272,7 @@ begin
 end;
 
 
-destructor TLuaReadWriteParameters.Destroy;
+destructor TLuaParameters.Destroy;
 begin
   FreeAndNil(FParameters);
 
@@ -2280,49 +2280,49 @@ begin
 end;
 
 
-function TLuaReadWriteParameters.GetCount: Integer;
+function TLuaParameters.GetCount: Integer;
 begin
   Result := FParameters.Count;
 end;
 
 
-function TLuaReadWriteParameters.GetItem(Index: Integer): ILuaVariable;
+function TLuaParameters.GetItem(Index: Integer): ILuaVariable;
 begin
   Result := FParameters[Index];
 end;
 
 
-procedure TLuaReadWriteParameters.Push(ABoolean: Boolean);
+procedure TLuaParameters.Push(ABoolean: Boolean);
 begin
   FParameters.Add(TLuaVariable.Create(ABoolean));
 end;
 
 
-procedure TLuaReadWriteParameters.Push(AInteger: Integer);
+procedure TLuaParameters.Push(AInteger: Integer);
 begin
   FParameters.Add(TLuaVariable.Create(AInteger));
 end;
 
 
-procedure TLuaReadWriteParameters.Push(ANumber: Double);
+procedure TLuaParameters.Push(ANumber: Double);
 begin
   FParameters.Add(TLuaVariable.Create(ANumber));
 end;
 
 
-procedure TLuaReadWriteParameters.Push(AUserData: Pointer);
+procedure TLuaParameters.Push(AUserData: Pointer);
 begin
   FParameters.Add(TLuaVariable.Create(AUserData));
 end;
 
 
-procedure TLuaReadWriteParameters.Push(const AString: string);
+procedure TLuaParameters.Push(const AString: string);
 begin
   FParameters.Add(TLuaVariable.Create(AString));
 end;
 
 
-procedure TLuaReadWriteParameters.Push(ATable: ILuaTable);
+procedure TLuaParameters.Push(ATable: ILuaTable);
 begin
   FParameters.Add(TLuaVariable.Create(ATable));
 end;
