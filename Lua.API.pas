@@ -742,7 +742,7 @@ begin
     lua_getinfo(L, 'Sl', ar);  // get info about it
     if (ar.currentline > 0) then // is there info?
     begin
-      msg := Format('%s:%d: ', [ar.short_src, ar.currentline]);
+      msg := AnsiString(Format('%s:%d: ', [ar.short_src, ar.currentline]));
       lua_pushlstring(L, PAnsiChar(msg), Length(msg));
       exit
     end;

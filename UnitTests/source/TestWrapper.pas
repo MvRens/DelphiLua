@@ -54,12 +54,15 @@ type
 
     procedure RegisterObject;
     procedure RegisterObjectTable;
+
+    procedure LoadFromFile;
   end;
 
 
 implementation
 uses
-  System.Classes;
+  System.Classes,
+  System.IOUtils;
 
 
 type
@@ -496,6 +499,30 @@ begin
     CheckEquals('Method1:HelloMethod2:world!', Printed.ToString);
   finally
     FreeAndNil(testObject);
+  end;
+end;
+
+
+procedure TTestWrapper.LoadFromFile;
+var
+  fileName: string;
+  script: TStringList;
+
+begin
+  fileName := TPath.GetTempFileName;
+  try
+    script := TStringList.Create;
+    try
+      script.Add('print("Hello world!")');
+      script.SaveToFile(fileName);
+    finally
+      FreeAndNil(script);
+    end;
+
+    Lua.LoadFromFile(fileName);
+    CheckEquals('Hello world!', Printed.ToString);
+  finally
+    TFile.Delete(fileName);
   end;
 end;
 
