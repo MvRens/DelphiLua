@@ -340,7 +340,7 @@ type
     isvararg: Byte;
     istailcall: Byte;
     short_src: array[0..LUA_IDSIZE - 1] of AnsiChar;
-    //struct CallInfo *i_ci;  /* active function */
+    i_ci: Integer;
   end;
 
   { Functions to be called by the debugger in specific events }
