@@ -398,6 +398,13 @@ type
 
     procedure OpenLibraries(ALibraries: TLuaLibraries); virtual;
 
+    { Get or set the current path(s) used for require calls. Paths must be separated
+      by semicolons and questions marks will be replaced with the requested file name,
+      as per the Lua documentation at: https://www.lua.org/pil/8.1.html }
+    function GetRequirePath: string;
+    procedure SetRequirePath(const APath: string);
+    procedure AddRequirePath(const APath: string);
+
     { These methods should only be called right after one of the
       LoadFrom methods, which must have AutoRun set to False. }
     procedure Run; virtual;
@@ -1397,6 +1404,51 @@ begin
     if TLuaLibrary.Package in ALibraries then
       luaL_requiref(State, 'package', luaopen_package, 1);
   end;
+end;
+
+
+function TLua.GetRequirePath: string;
+begin
+  CheckState;
+
+  lua_getglobal(State, 'package');
+  try
+    lua_getfield(State, -1, 'path');
+    try
+      Result := TLuaHelpers.LuaToString(State, -1);
+    finally
+      lua_pop(State, 1);
+    end;
+  finally
+    lua_pop(State, 1);
+  end;
+end;
+
+
+procedure TLua.SetRequirePath(const APath: string);
+begin
+  CheckState;
+
+  lua_getglobal(State, 'package');
+  try
+    TLuaHelpers.PushString(State, APath);
+    lua_setfield(State, -2, 'path');
+  finally
+    lua_pop(State, 1);
+  end;
+end;
+
+
+procedure TLua.AddRequirePath(const APath: string);
+var
+  path: string;
+
+begin
+  path := GetRequirePath;
+  if (Length(path) > 0) and (path[Length(path)] <> ';') then
+    path := path + ';';
+
+  SetRequirePath(path + APath);
 end;
 
 
