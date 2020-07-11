@@ -46,14 +46,20 @@ type
   TLuaLibraries = set of TLuaLibrary;
 
   TLuaDataType = (LuaNone, LuaNil, LuaNumber, LuaBoolean, LuaString, LuaTable,
-                  LuaFunction, LuaUserData, LuaThread, LuaLightUserData);
+                  LuaFunction, LuaUserData, LuaThread, LuaLightUserData, LuaCClosure);
 
   TLuaVariableType = (VariableNone, VariableBoolean, VariableInteger,
                       VariableNumber, VariableUserData, VariableString,
-                      VariableTable, VariableFunction);
+                      VariableTable, VariableFunction, VariableCFunction);
 
   ILuaTable = interface;
   ILuaFunction = interface;
+  ILuaContext = interface;
+
+
+  TLuaCFunction = reference to procedure(Context: ILuaContext);
+  TLuaCMethod = procedure(Context: ILuaContext) of object;
+  TLuaPushFunction = reference to procedure(AFunction: TLuaCFunction);
 
 
   ILuaVariable = interface
@@ -68,6 +74,7 @@ type
     function GetAsString: string;
     function GetAsTable: ILuaTable;
     function GetAsFunction: ILuaFunction;
+    function GetAsCFunction: TLuaCFunction;
 
     procedure SetAsBoolean(ABoolean: Boolean);
     procedure SetAsInteger(AInteger: Integer);
@@ -86,6 +93,7 @@ type
     property AsString: string read GetAsString write SetAsString;
     property AsTable: ILuaTable read GetAsTable write SetAsTable;
     property AsFunction: ILuaFunction read GetAsFunction;
+    property AsCFunction: TLuaCFunction read GetAsCFunction;
   end;
 
 
@@ -99,6 +107,8 @@ type
     class operator Implicit(AValue: Pointer): TLuaImplicitVariable;
     class operator Implicit(const AValue: string): TLuaImplicitVariable;
     class operator Implicit(AValue: ILuaTable): TLuaImplicitVariable;
+    class operator Implicit(AValue: TLuaCFunction): TLuaImplicitVariable;
+
     class operator Implicit(AValue: TLuaImplicitVariable): ILuaVariable;
     class operator Implicit(AValue: TLuaImplicitVariable): Boolean;
     class operator Implicit(AValue: TLuaImplicitVariable): Integer;
@@ -223,6 +233,7 @@ type
     function GetAsString: string;
     function GetAsTable: ILuaTable;
     function GetAsFunction: ILuaFunction;
+    function GetAsCFunction: TLuaCFunction;
 
     procedure SetAsBoolean(ABoolean: Boolean);
     procedure SetAsInteger(AInteger: Integer);
@@ -276,11 +287,6 @@ type
     property Parameters: ILuaReadParameters read GetParameters;
     property Result: ILuaWriteParameters read GetResult;
   end;
-
-
-  TLuaCFunction = reference to procedure(Context: ILuaContext);
-  TLuaCMethod = procedure(Context: ILuaContext) of object;
-  TLuaPushFunction = reference to procedure(AFunction: TLuaCFunction);
 
 
   TCustomLuaRegistration = class(TObject)
@@ -435,6 +441,7 @@ type
     class procedure PushVariable(AState: lua_State; AVariable: ILuaVariable; AVariableType: TLuaVariableType); overload;
     class procedure PushString(AState: lua_State; const AValue: string);
     class procedure PushTable(AState: lua_State; ATable: ILuaTable);
+    class procedure PushCFunction(AState: lua_State; AClosure: TLuaCFunction);
 
     class function AllocLuaString(const AValue: string): PAnsiChar;
     class procedure FreeLuaString(AValue: PAnsiChar);
@@ -509,6 +516,7 @@ type
     function GetAsString: string;
     function GetAsTable: ILuaTable;
     function GetAsFunction: ILuaFunction;
+    function GetAsCFunction: TLuaCFunction;
 
     procedure SetAsBoolean(ABoolean: Boolean);
     procedure SetAsInteger(AInteger: Integer);
@@ -542,6 +550,7 @@ type
     FStringValue: string;
     FTableValue: ILuaTable;
     FFunctionValue: ILuaFunction;
+    FCFunctionValue: TLuaCFunction;
   protected
     property VariableType: TLuaVariableType read FVariableType write FVariableType;
     property DataType: TLuaDataType read FDataType write FDataType;
@@ -552,6 +561,7 @@ type
     property StringValue: string read FStringValue write FStringValue;
     property TableValue: ILuaTable read FTableValue write FTableValue;
     property FunctionValue: ILuaFunction read FFunctionValue write FFunctionValue;
+    property CFunctionValue: TLuaCFunction read FCFunctionValue write FCFunctionValue;
   public
     constructor Create; overload;
     constructor Create(ABoolean: Boolean); overload;
@@ -561,6 +571,7 @@ type
     constructor Create(const AString: string); overload;
     constructor Create(ATable: ILuaTable); overload;
     constructor Create(AFunction: ILuaFunction); overload;
+    constructor Create(AFunction: TLuaCFunction); overload;
 
     { ILuaParameter }
     function GetVariableType: TLuaVariableType;
@@ -573,6 +584,7 @@ type
     function GetAsString: string;
     function GetAsTable: ILuaTable;
     function GetAsFunction: ILuaFunction;
+    function GetAsCFunction: TLuaCFunction;
 
     procedure SetAsBoolean(ABoolean: Boolean);
     procedure SetAsInteger(AInteger: Integer);
@@ -679,6 +691,7 @@ begin
     LuaFunction:      Result := VariableFunction;
     LuaUserData:      Result := VariableUserData;
     LuaLightUserData: Result := VariableUserData;
+    LuaCClosure:      Result := VariableCFunction;
   else
                       Result := VariableNone;
   end;
@@ -752,6 +765,7 @@ begin
 
     VariableString:   PushString(AState, AVariable.AsString);
     VariableTable:    PushTable(AState, AVariable.AsTable);
+    VariableCFunction: PushCFunction(AState, AVariable.AsCFunction);
   else
     raise ELuaUnsupportedVariableException.CreateFmt('Variable type not supported: %d', [Ord(AVariableType)]);
   end;
@@ -785,6 +799,43 @@ begin
     PushVariable(AState, pair.Value);
     lua_settable(AState, -3);
   end;
+end;
+
+
+function LuaWrapperClosure(L: lua_State): Integer; cdecl;
+var
+  method: TMethod;
+  closure: TLuaCFunction absolute method;
+  context: ILuaContext;
+
+begin
+  method.Code := lua_touserdata(L, lua_upvalueindex(1));
+  method.Data := lua_touserdata(L, lua_upvalueindex(2));
+
+  context := TLuaContext.Create(L);
+  try
+    closure(context);
+    Result := context.Result.Count;
+  except
+    on E:Exception do
+      Result := luaL_error(L, PAnsiChar(AnsiString(E.Message)), nil);
+  end;
+end;
+
+
+class procedure TLuaHelpers.PushCFunction(AState: lua_State; AClosure: TLuaCFunction);
+var
+  method: TMethod absolute AClosure;
+
+
+begin
+  { Assume the reference to AClosure is being kept alive by the caller for as long
+    as it's needed, for example by the ILuaVariable that contains it. That way we
+    don't need to keep our own reference, as we can't determine when it's ok to go out
+    of scope, which would result in memory increase on every use. }
+  lua_pushlightuserdata(AState, method.Code);
+  lua_pushlightuserdata(AState, method.Data);
+  lua_pushcclosure(AState, @LuaWrapperClosure, 2);
 end;
 
 
@@ -925,6 +976,11 @@ end;
 
 
 class operator TLuaImplicitVariable.Implicit(AValue: ILuaTable): TLuaImplicitVariable;
+begin
+  Result.Variable := TLuaVariable.Create(AValue);
+end;
+
+class operator TLuaImplicitVariable.Implicit(AValue: TLuaCFunction): TLuaImplicitVariable;
 begin
   Result.Variable := TLuaVariable.Create(AValue);
 end;
@@ -1856,6 +1912,12 @@ begin
 end;
 
 
+function TCustomLuaParameters.GetAsCFunction: TLuaCFunction;
+begin
+  Result := GetDefaultVariable.GetAsCFunction;
+end;
+
+
 procedure TCustomLuaParameters.SetAsBoolean(ABoolean: Boolean);
 begin
   GetDefaultVariable.SetAsBoolean(ABoolean);
@@ -1910,7 +1972,7 @@ begin
 end;
 
 
-{ TLuaCFunctionParameters }
+{ TLuaStackParameters }
 constructor TLuaStackParameters.Create(AState: lua_State; ACount: Integer);
 begin
   inherited Create;
@@ -1938,7 +2000,7 @@ begin
 end;
 
 
-{ TLuaCFunctionParameter }
+{ TLuaStackVariable }
 constructor TLuaStackVariable.Create(AState: lua_State; AIndex: Integer);
 begin
   inherited Create;
@@ -1993,7 +2055,7 @@ end;
 function TLuaStackVariable.GetAsTable: ILuaTable;
 begin
   if not lua_istable(State, Index) then
-    Result := nil;
+    Exit(nil);
 
   if not Assigned(FTable) then
     FTable := TLuaCachedTable.Create(State, Index);
@@ -2005,9 +2067,15 @@ end;
 function TLuaStackVariable.GetAsFunction: ILuaFunction;
 begin
   if not lua_isfunction(State, Index) then
-    Result := nil;
+    Exit(nil);
 
   Result := TLuaFunction.Create(State, Index);
+end;
+
+
+function TLuaStackVariable.GetAsCFunction: TLuaCFunction;
+begin
+  raise ELuaUnsupportedVariableException.Create('Can not read stack variables as TLuaCFunction');
 end;
 
 
@@ -2152,6 +2220,15 @@ begin
 end;
 
 
+constructor TLuaVariable.Create(AFunction: TLuaCFunction);
+begin
+  Create;
+  VariableType := VariableCFunction;
+  DataType := LuaCClosure;
+  CFunctionValue := AFunction;
+end;
+
+
 function TLuaVariable.GetVariableType: TLuaVariableType;
 begin
   Result := VariableType;
@@ -2203,6 +2280,12 @@ end;
 function TLuaVariable.GetAsFunction: ILuaFunction;
 begin
   Result := FunctionValue;
+end;
+
+
+function TLuaVariable.GetAsCFunction: TLuaCFunction;
+begin
+  Result := CFunctionValue;
 end;
 
 
@@ -2477,7 +2560,7 @@ begin
 end;
 
 
-{ TLuaCFunction }
+{ TLuaFunction }
 constructor TLuaFunction.Create(AState: lua_State; AIndex: Integer);
 var
   actualIndex: Integer;

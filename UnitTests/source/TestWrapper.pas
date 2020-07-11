@@ -46,6 +46,8 @@ type
     procedure TableOutput;
     procedure TableDelphiFunction;
     procedure TableLuaFunction;
+    procedure TableInTable;
+    procedure CFunctionInNestedTable;
 
     procedure VariableFunction;
     procedure ByteCode;
@@ -383,6 +385,55 @@ begin
   returnValues := Lua.Call('pilate', [input]);
   CheckEquals(1, returnValues.Count, 'returnValues Count');
   CheckEquals('welease wodewick!', returnValues[0].AsString, 'returnValue[0]');
+end;
+
+
+procedure TTestWrapper.TableInTable;
+var
+  inner: ILuaTable;
+  outer: ILuaTable;
+
+begin
+  inner := TLuaTable.Create;
+  inner.SetValue('text', 'Hello from the inner table!');
+
+  outer := TLuaTable.Create;
+  outer.SetValue('inner', inner);
+
+  Lua.LoadFromString('print(outer.inner.text)', False);
+  Lua.SetGlobalVariable('outer', outer);
+  Lua.Run;
+
+  CheckEquals('Hello from the inner table!', Printed.ToString);
+end;
+
+
+{ The fact that it's in a nested table shouldn't matter for registering functions
+  in tables, but it demonstrates https://github.com/MvRens/DelphiLua/issues/2 }
+procedure TTestWrapper.CFunctionInNestedTable;
+var
+  inner: ILuaTable;
+  outer: ILuaTable;
+  output: string;
+
+begin
+  output := '';
+
+  inner := TLuaTable.Create;
+  inner.SetValue('go',
+    procedure(Context: ILuaContext)
+    begin
+      output := Context.Parameters[0].AsString;
+    end);
+
+  outer := TLuaTable.Create;
+  outer.SetValue('inner', inner);
+
+  Lua.LoadFromString('outer.inner.go(''Hello inner function!'')', False);
+  Lua.SetGlobalVariable('outer', outer);
+  Lua.Run;
+
+  CheckEquals('Hello inner function!', output);
 end;
 
 
