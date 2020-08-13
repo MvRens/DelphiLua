@@ -1,0 +1,163 @@
+﻿	<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+		<PropertyGroup>
+			<ProjectGuid>{8EF9E49D-83BD-4B5D-B407-7CB3763E3730}</ProjectGuid>
+			<ProjectVersion>13.4</ProjectVersion>
+			<FrameworkType>VCL</FrameworkType>
+			<MainSource>DelphiLuaInteractiveTests.dpr</MainSource>
+			<Base>True</Base>
+			<Config Condition="'$(Config)'==''">Debug</Config>
+			<Platform Condition="'$(Platform)'==''">Win32</Platform>
+			<TargetedPlatforms>1</TargetedPlatforms>
+			<AppType>Application</AppType>
+		</PropertyGroup>
+		<PropertyGroup Condition="'$(Config)'=='Base' or '$(Base)'!=''">
+			<Base>true</Base>
+		</PropertyGroup>
+		<PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Base)'=='true') or '$(Base_Win64)'!=''">
+			<Base_Win64>true</Base_Win64>
+			<CfgParent>Base</CfgParent>
+			<Base>true</Base>
+		</PropertyGroup>
+		<PropertyGroup Condition="('$(Platform)'=='Win32' and '$(Base)'=='true') or '$(Base_Win32)'!=''">
+			<Base_Win32>true</Base_Win32>
+			<CfgParent>Base</CfgParent>
+			<Base>true</Base>
+		</PropertyGroup>
+		<PropertyGroup Condition="'$(Config)'=='Debug' or '$(Cfg_1)'!=''">
+			<Cfg_1>true</Cfg_1>
+			<CfgParent>Base</CfgParent>
+			<Base>true</Base>
+		</PropertyGroup>
+		<PropertyGroup Condition="('$(Platform)'=='Win32' and '$(Cfg_1)'=='true') or '$(Cfg_1_Win32)'!=''">
+			<Cfg_1_Win32>true</Cfg_1_Win32>
+			<CfgParent>Cfg_1</CfgParent>
+			<Cfg_1>true</Cfg_1>
+			<Base>true</Base>
+		</PropertyGroup>
+		<PropertyGroup Condition="'$(Config)'=='Release' or '$(Cfg_2)'!=''">
+			<Cfg_2>true</Cfg_2>
+			<CfgParent>Base</CfgParent>
+			<Base>true</Base>
+		</PropertyGroup>
+		<PropertyGroup Condition="('$(Platform)'=='Win32' and '$(Cfg_2)'=='true') or '$(Cfg_2_Win32)'!=''">
+			<Cfg_2_Win32>true</Cfg_2_Win32>
+			<CfgParent>Cfg_2</CfgParent>
+			<Cfg_2>true</Cfg_2>
+			<Base>true</Base>
+		</PropertyGroup>
+		<PropertyGroup Condition="'$(Base)'!=''">
+			<Manifest_File>None</Manifest_File>
+			<VerInfo_Keys>CompanyName=;FileDescription=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
+			<VerInfo_Locale>1043</VerInfo_Locale>
+			<DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;Vcl;Vcl.Imaging;Vcl.Touch;Vcl.Samples;Vcl.Shell;$(DCC_Namespace)</DCC_Namespace>
+			<Icon_MainIcon>$(BDS)\bin\delphi_PROJECTICON.ico</Icon_MainIcon>
+			<DCC_UsePackage>DBXInterBaseDriver;DataSnapServer;DataSnapCommon;DbxCommonDriver;dbxcds;CustomIPTransport;dsnap;IndyCore;FmxTeeUI;IPIndyImpl;bindcompfmx;dbrtl;bindcomp;inetdb;xmlrtl;ibxpress;soaprtl;FMXTee;bindengine;DBXInformixDriver;DBXFirebirdDriver;inet;DBXSybaseASADriver;dbexpress;fmx;IndySystem;DataSnapClient;DataSnapProviderClient;DBXOracleDriver;inetdbxpress;rtl;DbxClientDriver;IndyProtocols;DBXMySQLDriver;DataSnapIndy10ServerTransport;$(DCC_UsePackage)</DCC_UsePackage>
+			<DCC_DcuOutput>.\$(Platform)\$(Config)</DCC_DcuOutput>
+			<DCC_ExeOutput>.\$(Platform)\$(Config)</DCC_ExeOutput>
+		</PropertyGroup>
+		<PropertyGroup Condition="'$(Base_Win64)'!=''">
+			<DCC_UsePackage>dxTileControlRS16;cxLibraryRS16;dxPsPrVwAdvRS16;dxRibbonCustomizationFormRS16;dxPSCoreRS16;dxRichEditInplaceRS16;dxPScxTLLnkRS16;dxPSdxSpreadSheetLnkRS16;cxPageControlRS16;dxPScxGridLnkRS16;vclimg;dxComnRS16;vcldb;dxOfficeCoreRS16;dxBarExtDBItemsRS16;dxSpreadSheetInplaceRichEditRS16;dxSpreadSheetCoreRS16;cxDataRS16;dxDockingRS16;dxPSDBTeeChartRS16;dxSpreadSheetReportDesignerRS16;dxBarExtItemsRS16;dxPSLnksRS16;dxPSdxPDFViewerLnkRS16;dxPSTeeChartRS16;dxPSdxLCLnkRS16;cxVerticalGridRS16;dxorgcRS16;dxWizardControlRS16;dxPScxExtCommonRS16;dxNavBarRS16;dxSpreadSheetCoreDialogsRS16;dxSpreadSheetCoreConditionalFormattingDialogsRS16;cxSchedulerTreeBrowserRS16;DBXOdbcDriver;dxdbtrRS16;dxRichEditCoreRS16;dxPSdxDBTVLnkRS16;vclactnband;dxPScxSchedulerLnkRS16;dxServerModeRS16;bindcompvcl;vclie;dsnapcon;dxHttpIndyRequestRS16;vclx;dxFlowChartRS16;dxGDIPlusRS16;dxdborRS16;dxPDFViewerRS16;dxEMFRS16;dxLayoutControlRS16;dxSpreadSheetRS16;dxPScxPivotGridLnkRS16;dxCoreRS16;dxPScxVGridLnkRS16;cxExportRS16;dxPSdxMapControlLnkRS16;dxBarRS16;TeeDB;dxDBXServerModeRS16;cxTreeListdxBarPopupMenuRS16;dxPSdxGaugeControlLnkRS16;dxRibbonRS16;DBXSybaseASEDriver;dxSpreadSheetConditionalFormattingDialogsRS16;cxTreeListRS16;vcldsnap;dxGaugeControlRS16;DBXDb2Driver;vcl;DBXMSSQLDriver;cxSchedulerGridRS16;dxRichEditControlCoreRS16;webdsnap;dxtrmdRS16;adortl;dxRichEditControlRS16;dxRichEditDocumentModelRS16;dxPSdxDBOCLnkRS16;Tee;cxPivotGridChartRS16;dxmdsRS16;dxSpellCheckerRS16;dxMapControlRS16;cxGridRS16;dxPScxCommonRS16;dxPSPrVwRibbonRS16;cxEditorsRS16;TeeUI;cxPivotGridRS16;cxSchedulerRibbonStyleEventEditorRS16;cxSchedulerRS16;vcltouch;websnap;dxFlowChartAdvancedCustomizeFormRS16;VclSmp;dxTabbedMDIRS16;dxPSRichEditControlLnkRS16;dxPSdxOCLnkRS16;dxPSdxFCLnkRS16;dxThemeRS16;dxPScxPCProdRS16;dxBarDBNavRS16;$(DCC_UsePackage)</DCC_UsePackage>
+		</PropertyGroup>
+		<PropertyGroup Condition="'$(Base_Win32)'!=''">
+			<DCC_UsePackage>dxTileControlRS16;JvGlobus;JvMM;cxLibraryRS16;JvManagedThreads;JvCrypt;rbDIDE1516;dxPsPrVwAdvRS16;dxRibbonCustomizationFormRS16;rbTCUI1516;dxPSCoreRS16;dxRichEditInplaceRS16;dxPScxTLLnkRS16;dxPSdxSpreadSheetLnkRS16;JvNet;cxPageControlRS16;dxPScxGridLnkRS16;JvDotNetCtrls;vclimg;rbDAD1516;dxComnRS16;JvXPCtrls;rbRCL1516;vcldb;dxOfficeCoreRS16;dxBarExtDBItemsRS16;rbIBE1516;dxSpreadSheetInplaceRichEditRS16;dclRBIBE1516;dclRBADO1516;dxSpreadSheetCoreRS16;CloudService;rbRAP1516;cxDataRS16;dxDockingRS16;dxPSDBTeeChartRS16;JvDB;JvRuntimeDesign;dxSpreadSheetReportDesignerRS16;X2CLMB;dxBarExtItemsRS16;dxPSLnksRS16;dxPSdxPDFViewerLnkRS16;JclDeveloperTools;dxPSTeeChartRS16;dxPSdxLCLnkRS16;cxVerticalGridRS16;dxorgcRS16;dxWizardControlRS16;dxPScxExtCommonRS16;vcldbx;rbDBDE1516;dxNavBarRS16;dclRBE1516;dxSpreadSheetCoreDialogsRS16;rbIDE1516;JvPluginSystem;dxSpreadSheetCoreConditionalFormattingDialogsRS16;cxSchedulerTreeBrowserRS16;DBXOdbcDriver;JvCmp;dxdbtrRS16;madDisAsm_;dxRichEditCoreRS16;JvTimeFramework;dxPSdxDBTVLnkRS16;vclactnband;dxPScxSchedulerLnkRS16;dxServerModeRS16;bindcompvcl;Jcl;vclie;madExcept_;dsnapcon;dxHttpIndyRequestRS16;JvPascalInterpreter;vclx;rbDBE1516;dxFlowChartRS16;dxGDIPlusRS16;JvBDE;dxdborRS16;dxPDFViewerRS16;dxEMFRS16;dxLayoutControlRS16;dxSpreadSheetRS16;dxPScxPivotGridLnkRS16;dxCoreRS16;dxPScxVGridLnkRS16;cxExportRS16;dxPSdxMapControlLnkRS16;dxBarRS16;JvDlgs;cxSchedulerWebServiceStorageRS16;TeeDB;dxDBXServerModeRS16;cxTreeListdxBarPopupMenuRS16;dxPSdxGaugeControlLnkRS16;vclib;inetdbbde;dxRibbonRS16;DBXSybaseASEDriver;dxSpreadSheetConditionalFormattingDialogsRS16;rbTC1516;cxTreeListRS16;vcldsnap;X2CLGL;dxGaugeControlRS16;DBXDb2Driver;dclRBBDE1516;rbDB1516;JvCore;vcl;DBXMSSQLDriver;JvAppFrm;cxSchedulerGridRS16;dxRichEditControlCoreRS16;webdsnap;dxtrmdRS16;rbRIDE1516;JvDocking;adortl;JvWizards;dxRichEditControlRS16;rbADO1516;madBasic_;JvHMI;dxRichEditDocumentModelRS16;JvBands;dxPSdxDBOCLnkRS16;Tee;rbUSERDesign1516;JvSystem;svnui;cxPivotGridChartRS16;JvControls;dxmdsRS16;dxSpellCheckerRS16;dxMapControlRS16;cxGridRS16;dxPScxCommonRS16;dxPSPrVwRibbonRS16;cxEditorsRS16;TeeUI;cxPivotGridRS16;rbUSER1516;JvJans;JvPrintPreview;JvPageComps;dclRBDBE1516;JvStdCtrls;JvCustom;cxSchedulerRibbonStyleEventEditorRS16;rbBDE1516;cxSchedulerRS16;vcltouch;websnap;dxFlowChartAdvancedCustomizeFormRS16;VclSmp;dxTabbedMDIRS16;dxPSRichEditControlLnkRS16;DataSnapConnectors;dxPSdxOCLnkRS16;dxPSdxFCLnkRS16;dxThemeRS16;JclVcl;dxPScxPCProdRS16;rbCIDE1516;svn;bdertl;VirtualTreesR;dxAuthorizationAgentsRS16;dxBarDBNavRS16;$(DCC_UsePackage)</DCC_UsePackage>
+			<VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+			<DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;Bde;$(DCC_Namespace)</DCC_Namespace>
+			<VerInfo_Locale>1033</VerInfo_Locale>
+			<Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
+		</PropertyGroup>
+		<PropertyGroup Condition="'$(Cfg_1)'!=''">
+			<DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
+			<DCC_Optimize>false</DCC_Optimize>
+			<DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
+			<DCC_DebugInfoInExe>true</DCC_DebugInfoInExe>
+			<DCC_RemoteDebug>true</DCC_RemoteDebug>
+		</PropertyGroup>
+		<PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
+			<DCC_ExeOutput>bin\win32</DCC_ExeOutput>
+			<VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+			<Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
+			<DCC_DcuOutput>lib\win32</DCC_DcuOutput>
+			<VerInfo_Locale>1033</VerInfo_Locale>
+			<DCC_RemoteDebug>false</DCC_RemoteDebug>
+		</PropertyGroup>
+		<PropertyGroup Condition="'$(Cfg_2)'!=''">
+			<DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
+			<DCC_Define>RELEASE;$(DCC_Define)</DCC_Define>
+			<DCC_SymbolReferenceInfo>0</DCC_SymbolReferenceInfo>
+			<DCC_DebugInformation>false</DCC_DebugInformation>
+		</PropertyGroup>
+		<PropertyGroup Condition="'$(Cfg_2_Win32)'!=''">
+			<DCC_ExeOutput>bin\win32</DCC_ExeOutput>
+			<VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+			<Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
+			<VerInfo_Locale>1033</VerInfo_Locale>
+			<DCC_DcuOutput>lib\win32</DCC_DcuOutput>
+		</PropertyGroup>
+		<ItemGroup>
+			<DelphiCompile Include="$(MainSource)">
+				<MainSource>MainSource</MainSource>
+			</DelphiCompile>
+			<DCCReference Include="MainFrm.pas">
+				<Form>MainForm</Form>
+			</DCCReference>
+			<DCCReference Include="..\Lua.API.pas"/>
+			<DCCReference Include="..\Lua.pas"/>
+			<BuildConfiguration Include="Release">
+				<Key>Cfg_2</Key>
+				<CfgParent>Base</CfgParent>
+			</BuildConfiguration>
+			<BuildConfiguration Include="Base">
+				<Key>Base</Key>
+			</BuildConfiguration>
+			<BuildConfiguration Include="Debug">
+				<Key>Cfg_1</Key>
+				<CfgParent>Base</CfgParent>
+			</BuildConfiguration>
+		</ItemGroup>
+		<ProjectExtensions>
+			<Borland.Personality>Delphi.Personality.12</Borland.Personality>
+			<Borland.ProjectType/>
+			<BorlandProject>
+				<Delphi.Personality>
+					<Source>
+						<Source Name="MainSource">DelphiLuaInteractiveTests.dpr</Source>
+					</Source>
+					<VersionInfo>
+						<VersionInfo Name="IncludeVerInfo">False</VersionInfo>
+						<VersionInfo Name="AutoIncBuild">False</VersionInfo>
+						<VersionInfo Name="MajorVer">1</VersionInfo>
+						<VersionInfo Name="MinorVer">0</VersionInfo>
+						<VersionInfo Name="Release">0</VersionInfo>
+						<VersionInfo Name="Build">0</VersionInfo>
+						<VersionInfo Name="Debug">False</VersionInfo>
+						<VersionInfo Name="PreRelease">False</VersionInfo>
+						<VersionInfo Name="Special">False</VersionInfo>
+						<VersionInfo Name="Private">False</VersionInfo>
+						<VersionInfo Name="DLL">False</VersionInfo>
+						<VersionInfo Name="Locale">1043</VersionInfo>
+						<VersionInfo Name="CodePage">1252</VersionInfo>
+					</VersionInfo>
+					<VersionInfoKeys>
+						<VersionInfoKeys Name="CompanyName"/>
+						<VersionInfoKeys Name="FileDescription"/>
+						<VersionInfoKeys Name="FileVersion">1.0.0.0</VersionInfoKeys>
+						<VersionInfoKeys Name="InternalName"/>
+						<VersionInfoKeys Name="LegalCopyright"/>
+						<VersionInfoKeys Name="LegalTrademarks"/>
+						<VersionInfoKeys Name="OriginalFilename"/>
+						<VersionInfoKeys Name="ProductName"/>
+						<VersionInfoKeys Name="ProductVersion">1.0.0.0</VersionInfoKeys>
+						<VersionInfoKeys Name="Comments"/>
+					</VersionInfoKeys>
+				</Delphi.Personality>
+				<Deployment/>
+				<Platforms>
+					<Platform value="Win64">False</Platform>
+					<Platform value="Win32">True</Platform>
+				</Platforms>
+			</BorlandProject>
+			<ProjectFileVersion>12</ProjectFileVersion>
+		</ProjectExtensions>
+		<Import Condition="Exists('$(BDS)\Bin\CodeGear.Delphi.Targets')" Project="$(BDS)\Bin\CodeGear.Delphi.Targets"/>
+		<Import Condition="Exists('$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj')" Project="$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj"/>
+	</Project>
